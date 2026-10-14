@@ -15,7 +15,7 @@
       <div class="hero-card mode-hero">
         <p class="eyebrow">A LIFE AND WEALTH SIMULATOR</p>
         <h1>FORTUNE PATH</h1>
-        <p class="hero-copy">Choose your game. Live through the consequences of sudden wealth, or start with any amount of money and see whether you can build it into something bigger.</p>
+        <p class="hero-copy">Choose your game. Live through the consequences of sudden wealth, or start with your own capital, choose a business, and see what five years of decisions turn it into.</p>
         <div class="mode-grid">
           <button id="life-mode-btn" class="mode-card">
             <span class="mode-tag">ORIGINAL MODE</span>
@@ -23,9 +23,9 @@
             <p>Start with a windfall, make life decisions, build businesses, spend, invest, help family, and see where your life ends up five years later.</p>
           </button>
           <button id="wealth-mode-btn" class="mode-card featured">
-            <span class="mode-tag">NEW MODE</span>
+            <span class="mode-tag">BUSINESS MODE</span>
             <strong>Build Wealth</strong>
-            <p>Start with almost any amount. Launch businesses, invest, reinvest profit, take risks, survive setbacks, and try to finish five years richer than you started.</p>
+            <p>Choose the business first, put your own amount of money into it, and build a five year story through the decisions you make.</p>
           </button>
         </div>
       </div>
@@ -37,7 +37,6 @@
         <p class="eyebrow">LIVE THE FORTUNE</p>
         <h1>FORTUNE PATH</h1>
         <p class="hero-copy">You just came into serious money. Choose how it happened, set the size of the fortune, and live five years of consequences. Earlier decisions can unlock opportunities, create problems, or completely change your ending.</p>
-
         <div class="setup-grid">
           <div class="setup-block">
             <label for="origin-select">How did you get the money?</label>
@@ -61,19 +60,11 @@
             </select>
           </div>
         </div>
-
         <div class="origin-preview" id="origin-preview"></div>
-
         <div class="amount-panel">
           <label for="starting-amount">Starting fortune after taxes and fees</label>
-          <div class="amount-row">
-            <span class="currency">$</span>
-            <input id="starting-amount" inputmode="numeric" value="100000000" aria-label="Starting fortune" />
-          </div>
-          <div class="start-actions">
-            <button id="randomize-btn" class="btn secondary">Randomize</button>
-            <button id="start-btn" class="btn primary">Start My Life</button>
-          </div>
+          <div class="amount-row"><span class="currency">$</span><input id="starting-amount" inputmode="numeric" value="100000000" aria-label="Starting fortune" /></div>
+          <div class="start-actions"><button id="randomize-btn" class="btn secondary">Randomize</button><button id="start-btn" class="btn primary">Start My Life</button></div>
           <p class="helper">Enter any amount from $100,000 to $1 billion, or let the game choose. Different origins change the questions and pressures you face.</p>
         </div>
       </div>
@@ -83,161 +74,50 @@
       <div class="hero-card">
         <button id="wealth-back-btn" class="text-btn">← Game modes</button>
         <p class="eyebrow">BUILD WEALTH</p>
-        <h1>MAKE IT GROW.</h1>
-        <p class="hero-copy">Start with your own amount of money. There is no lottery required. Build a business, invest, keep a job, take calculated risks, or gamble on growth. Five years later, the numbers decide whether you built wealth or burned through your capital.</p>
-
+        <h1>BUILD THE COMPANY.</h1>
+        <p class="hero-copy">Choose the business you want to create before the simulation starts. Your business choice determines the questions, risks, growth opportunities, yearly milestones, and the story generated from your decisions at the end.</p>
         <div class="amount-panel">
           <label for="wealth-starting-amount">How much money are you starting with?</label>
-          <div class="amount-row">
-            <span class="currency">$</span>
-            <input id="wealth-starting-amount" inputmode="numeric" value="10000" aria-label="Build wealth starting amount" />
-          </div>
+          <div class="amount-row"><span class="currency">$</span><input id="wealth-starting-amount" inputmode="numeric" value="10000" aria-label="Build wealth starting amount" /></div>
           <div class="setup-grid wealth-setup">
             <div class="setup-block">
-              <label for="wealth-style">Your starting strategy</label>
-              <select id="wealth-style">
-                <option value="business">Build a business</option>
-                <option value="balanced">Business + investing</option>
-                <option value="investor">Invest first</option>
-                <option value="hustle">Start small and hustle</option>
-              </select>
+              <label for="wealth-style">Your owner strategy</label>
+              <select id="wealth-style"><option value="business">Operator first</option><option value="balanced">Business + investing</option><option value="investor">Protect outside wealth</option><option value="hustle">Start lean and hustle</option></select>
             </div>
             <div class="setup-block">
               <label for="wealth-difficulty">Economy</label>
-              <select id="wealth-difficulty">
-                <option value="realistic">Realistic</option>
-                <option value="friendly">Forgiving</option>
-                <option value="brutal">Brutal</option>
-              </select>
+              <select id="wealth-difficulty"><option value="realistic">Realistic</option><option value="friendly">Forgiving</option><option value="brutal">Brutal</option></select>
             </div>
           </div>
-          <div class="start-actions">
-            <button id="wealth-randomize-btn" class="btn secondary">Randomize Amount</button>
-            <button id="wealth-start-btn" class="btn primary">Build My Wealth</button>
-          </div>
-          <p class="helper">Start with anything from $100 to $100 million. Your available opportunities scale with your capital.</p>
+          <div class="start-actions"><button id="wealth-randomize-btn" class="btn secondary">Randomize Amount</button><button id="wealth-start-btn" class="btn primary">Start This Business</button></div>
+          <p class="helper">Start with anything from $100 to $100 million. Some businesses need more startup capital than others, so the available choices adjust to your amount.</p>
         </div>
       </div>
     </section>
 
     <section id="game-screen" class="screen">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">YEAR <span id="year-label">1</span> OF 5</p>
-          <h2 id="chapter-title">Your new life begins</h2>
-        </div>
-        <div class="top-actions">
-          <button id="save-btn" class="icon-btn">Save</button>
-          <button id="restart-btn" class="icon-btn danger">Restart</button>
-        </div>
-      </header>
-
+      <header class="topbar"><div><p class="eyebrow">YEAR <span id="year-label">1</span> OF 5</p><h2 id="chapter-title">Your new life begins</h2></div><div class="top-actions"><button id="save-btn" class="icon-btn">Save</button><button id="restart-btn" class="icon-btn danger">Restart</button></div></header>
       <section class="stats-grid">
-        <article class="stat-card"><span>Net Worth</span><strong id="stat-networth">$0</strong></article>
-        <article class="stat-card"><span>Cash</span><strong id="stat-cash">$0</strong></article>
-        <article class="stat-card"><span>Annual Income</span><strong id="stat-income">$0</strong></article>
-        <article class="stat-card"><span>Annual Burn</span><strong id="stat-burn">$0</strong></article>
-        <article class="stat-card"><span>Risk</span><strong id="stat-risk">0</strong></article>
-        <article class="stat-card"><span>Happiness</span><strong id="stat-happiness">50</strong></article>
-        <article class="stat-card"><span>Health</span><strong id="stat-health">70</strong></article>
-        <article class="stat-card"><span>Relationships</span><strong id="stat-relationships">70</strong></article>
-        <article class="stat-card"><span>Fame</span><strong id="stat-fame">0</strong></article>
+        <article class="stat-card"><span>Net Worth</span><strong id="stat-networth">$0</strong></article><article class="stat-card"><span>Cash</span><strong id="stat-cash">$0</strong></article><article class="stat-card"><span>Annual Income</span><strong id="stat-income">$0</strong></article><article class="stat-card"><span>Annual Burn</span><strong id="stat-burn">$0</strong></article><article class="stat-card"><span>Risk</span><strong id="stat-risk">0</strong></article><article class="stat-card"><span>Happiness</span><strong id="stat-happiness">50</strong></article><article class="stat-card"><span>Health</span><strong id="stat-health">70</strong></article><article class="stat-card"><span>Relationships</span><strong id="stat-relationships">70</strong></article><article class="stat-card"><span>Fame</span><strong id="stat-fame">0</strong></article>
       </section>
-
-      <section class="game-layout">
-        <article class="question-card">
-          <div class="question-meta">
-            <span id="question-category" class="pill">LIFE</span>
-            <span id="question-progress">Decision 1</span>
-          </div>
-          <h3 id="question-title">What do you do first?</h3>
-          <p id="question-text"></p>
-          <div id="choices" class="choices"></div>
-        </article>
-
-        <aside class="sidebar">
-          <div class="side-card"><h4>Your Life</h4><div id="life-summary" class="summary-list"></div></div>
-          <div class="side-card"><h4>Recent Consequences</h4><div id="event-log" class="event-log"></div></div>
-        </aside>
-      </section>
+      <section class="game-layout"><article class="question-card"><div class="question-meta"><span id="question-category" class="pill">LIFE</span><span id="question-progress">Decision 1</span></div><h3 id="question-title">What do you do first?</h3><p id="question-text"></p><div id="choices" class="choices"></div></article><aside class="sidebar"><div class="side-card"><h4>Your Life</h4><div id="life-summary" class="summary-list"></div></div><div class="side-card"><h4>Recent Consequences</h4><div id="event-log" class="event-log"></div></div></aside></section>
     </section>
 
     <section id="wealth-game-screen" class="screen">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">BUILD WEALTH · YEAR <span id="wealth-year">1</span> OF 5</p>
-          <h2 id="wealth-chapter">Survive first. Scale second.</h2>
-        </div>
-        <div class="top-actions">
-          <button id="wealth-restart-btn" class="icon-btn danger">Restart</button>
-        </div>
-      </header>
-      <section class="stats-grid wealth-stats">
-        <article class="stat-card"><span>Net Worth</span><strong id="wealth-networth">$0</strong></article>
-        <article class="stat-card"><span>Cash</span><strong id="wealth-cash">$0</strong></article>
-        <article class="stat-card"><span>Annual Profit</span><strong id="wealth-profit">$0</strong></article>
-        <article class="stat-card"><span>Business Value</span><strong id="wealth-business-value">$0</strong></article>
-        <article class="stat-card"><span>Investments</span><strong id="wealth-investments">$0</strong></article>
-        <article class="stat-card"><span>Debt</span><strong id="wealth-debt">$0</strong></article>
-        <article class="stat-card"><span>Risk</span><strong id="wealth-risk">0/100</strong></article>
-        <article class="stat-card"><span>Reputation</span><strong id="wealth-reputation">0/100</strong></article>
-      </section>
-      <section class="game-layout">
-        <article class="question-card">
-          <div class="question-meta">
-            <span id="wealth-category" class="pill">BUSINESS</span>
-            <span id="wealth-progress">Decision 1</span>
-          </div>
-          <h3 id="wealth-question-title"></h3>
-          <p id="wealth-question-text"></p>
-          <div id="wealth-choices" class="choices"></div>
-        </article>
-        <aside class="sidebar">
-          <div class="side-card"><h4>Your Operation</h4><div id="wealth-summary" class="summary-list"></div></div>
-          <div class="side-card"><h4>What Just Happened</h4><div id="wealth-log" class="event-log"></div></div>
-        </aside>
-      </section>
+      <header class="topbar"><div><p class="eyebrow">BUILD WEALTH · YEAR <span id="wealth-year">1</span> OF 5</p><h2 id="wealth-chapter">Prove the model.</h2></div><div class="top-actions"><button id="wealth-restart-btn" class="icon-btn danger">Restart</button></div></header>
+      <section class="stats-grid wealth-stats"><article class="stat-card"><span>Net Worth</span><strong id="wealth-networth">$0</strong></article><article class="stat-card"><span>Cash</span><strong id="wealth-cash">$0</strong></article><article class="stat-card"><span>Annual Profit</span><strong id="wealth-profit">$0</strong></article><article class="stat-card"><span>Business Value</span><strong id="wealth-business-value">$0</strong></article><article class="stat-card"><span>Investments</span><strong id="wealth-investments">$0</strong></article><article class="stat-card"><span>Debt</span><strong id="wealth-debt">$0</strong></article><article class="stat-card"><span>Risk</span><strong id="wealth-risk">0/100</strong></article><article class="stat-card"><span>Reputation</span><strong id="wealth-reputation">0/100</strong></article></section>
+      <section class="game-layout"><article class="question-card"><div class="question-meta"><span id="wealth-category" class="pill">BUSINESS</span><span id="wealth-progress">Decision 1</span></div><h3 id="wealth-question-title"></h3><p id="wealth-question-text"></p><div id="wealth-choices" class="choices"></div></article><aside class="sidebar"><div class="side-card"><h4>Your Operation</h4><div id="wealth-summary" class="summary-list"></div></div><div class="side-card"><h4>What Just Happened</h4><div id="wealth-log" class="event-log"></div></div></aside></section>
     </section>
 
-    <section id="end-screen" class="screen">
-      <div class="ending-card">
-        <p class="eyebrow">FIVE YEARS LATER</p>
-        <h1 id="ending-title">THE SURVIVOR</h1>
-        <div id="ending-story" class="ending-story"></div>
-        <section class="impact-section"><div class="impact-heading"><p class="eyebrow">WHAT SHAPED YOUR LIFE</p><h2>How your decisions affected the outcome</h2></div><div id="ending-impacts" class="ending-impacts"></div></section>
-        <div class="ending-stats">
-          <div><span>Starting Fortune</span><strong id="end-start">$0</strong></div><div><span>Ending Net Worth</span><strong id="end-networth">$0</strong></div><div><span>Cash Remaining</span><strong id="end-cash">$0</strong></div><div><span>Annual Income</span><strong id="end-income">$0</strong></div><div><span>Risk Score</span><strong id="end-risk">0</strong></div><div><span>Happiness</span><strong id="end-happiness">0</strong></div><div><span>Health</span><strong id="end-health">0</strong></div><div><span>Relationships</span><strong id="end-relationships">0</strong></div><div><span>Reputation</span><strong id="end-reputation">0</strong></div>
-        </div>
-        <section class="impact-section"><div class="impact-heading"><p class="eyebrow">ACHIEVEMENTS</p><h2>What this life unlocked</h2></div><div id="achievement-list" class="achievement-list"></div></section>
-        <div class="ending-actions"><button id="play-again-btn" class="btn primary">Play Again</button><button id="copy-result-btn" class="btn secondary">Copy Result</button></div>
-      </div>
-    </section>
+    <section id="end-screen" class="screen"><div class="ending-card"><p class="eyebrow">FIVE YEARS LATER</p><h1 id="ending-title">THE SURVIVOR</h1><div id="ending-story" class="ending-story"></div><section class="impact-section"><div class="impact-heading"><p class="eyebrow">WHAT SHAPED YOUR LIFE</p><h2>How your decisions affected the outcome</h2></div><div id="ending-impacts" class="ending-impacts"></div></section><div class="ending-stats"><div><span>Starting Fortune</span><strong id="end-start">$0</strong></div><div><span>Ending Net Worth</span><strong id="end-networth">$0</strong></div><div><span>Cash Remaining</span><strong id="end-cash">$0</strong></div><div><span>Annual Income</span><strong id="end-income">$0</strong></div><div><span>Risk Score</span><strong id="end-risk">0</strong></div><div><span>Happiness</span><strong id="end-happiness">0</strong></div><div><span>Health</span><strong id="end-health">0</strong></div><div><span>Relationships</span><strong id="end-relationships">0</strong></div><div><span>Reputation</span><strong id="end-reputation">0</strong></div></div><section class="impact-section"><div class="impact-heading"><p class="eyebrow">ACHIEVEMENTS</p><h2>What this life unlocked</h2></div><div id="achievement-list" class="achievement-list"></div></section><div class="ending-actions"><button id="play-again-btn" class="btn primary">Play Again</button><button id="copy-result-btn" class="btn secondary">Copy Result</button></div></div></section>
 
-    <section id="wealth-end-screen" class="screen">
-      <div class="ending-card">
-        <p class="eyebrow">FIVE YEARS LATER · BUILD WEALTH</p>
-        <h1 id="wealth-ending-title">PROFITABLE.</h1>
-        <div id="wealth-ending-story" class="ending-story"></div>
-        <div class="ending-stats">
-          <div><span>Starting Capital</span><strong id="wealth-end-start">$0</strong></div>
-          <div><span>Ending Net Worth</span><strong id="wealth-end-networth">$0</strong></div>
-          <div><span>Total Gain / Loss</span><strong id="wealth-end-gain">$0</strong></div>
-          <div><span>5 Year Return</span><strong id="wealth-end-roi">0%</strong></div>
-          <div><span>Annual Profit</span><strong id="wealth-end-profit">$0</strong></div>
-          <div><span>Debt Remaining</span><strong id="wealth-end-debt">$0</strong></div>
-        </div>
-        <section class="impact-section">
-          <div class="impact-heading"><p class="eyebrow">YOUR BUSINESS STORY</p><h2>What made or lost your money</h2></div>
-          <div id="wealth-ending-impacts" class="ending-impacts"></div>
-        </section>
-        <div class="ending-actions"><button id="wealth-play-again-btn" class="btn primary">Try Another Amount</button><button id="wealth-copy-result-btn" class="btn secondary">Copy Result</button></div>
-      </div>
-    </section>
+    <section id="wealth-end-screen" class="screen"><div class="ending-card"><p class="eyebrow">FIVE YEARS LATER · BUILD WEALTH</p><h1 id="wealth-ending-title">PROFITABLE.</h1><div id="wealth-ending-story" class="ending-story"></div><div class="ending-stats"><div><span>Starting Capital</span><strong id="wealth-end-start">$0</strong></div><div><span>Ending Net Worth</span><strong id="wealth-end-networth">$0</strong></div><div><span>Total Gain / Loss</span><strong id="wealth-end-gain">$0</strong></div><div><span>5 Year Return</span><strong id="wealth-end-roi">0%</strong></div><div><span>Annual Profit</span><strong id="wealth-end-profit">$0</strong></div><div><span>Debt Remaining</span><strong id="wealth-end-debt">$0</strong></div></div><section class="impact-section"><div class="impact-heading"><p class="eyebrow">YOUR BUSINESS STORY</p><h2>The decisions that wrote this outcome</h2></div><div id="wealth-ending-impacts" class="ending-impacts"></div></section><div class="ending-actions"><button id="wealth-play-again-btn" class="btn primary">Build Another Business</button><button id="wealth-copy-result-btn" class="btn secondary">Copy Result</button></div></div></section>
   </main>
 
   <script src="script-data.js"></script>
   <script src="script.js"></script>
   <script src="wealth-mode.js"></script>
   <script src="wealth-arcs.js"></script>
+  <script src="wealth-flow-v2.js"></script>
 </body>
 </html>
