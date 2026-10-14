@@ -5,8 +5,8 @@ const wclamp = (v,min,max)=>Math.max(min,Math.min(max,v));
 
 const wealthState = {
   start:0,cash:0,investments:0,businessValue:0,debt:0,annualProfit:0,
-  risk:25,reputation:25,year:1,decision:0,maxDecisions:25,
-  style:'business',difficulty:'realistic',flags:{},used:new Set(),log:[],history:[]
+  risk:25,reputation:25,year:1,decision:0,maxDecisions:30,
+  style:'business',difficulty:'realistic',flags:{},used:new Set(),usedEvents:new Set(),log:[],history:[]
 };
 
 function showOnly(id){
@@ -33,206 +33,281 @@ W$('wealth-randomize-btn').onclick=()=>{
 };
 
 function wealthNetWorth(){ return wealthState.cash+wealthState.investments+wealthState.businessValue-wealthState.debt; }
-
 function scaleCost(pct,min=0,max=Infinity){ return Math.min(max,Math.max(min,wealthState.start*pct)); }
+function availableCashCost(target){ return Math.min(Math.max(0,wealthState.cash),target); }
+function businessIs(...types){ return types.includes(wealthState.flags.businessType); }
+function wlog(name,text){ wealthState.log.unshift({name,text}); wealthState.log=wealthState.log.slice(0,7); }
+function pushHistory(question,option,result){ wealthState.history.push({year:wealthState.year,question,option,result}); }
+function addProfit(v){ wealthState.annualProfit+=v; }
+function addValue(v){ wealthState.businessValue=Math.max(0,wealthState.businessValue+v); }
 
-function wlog(name,text){
-  wealthState.log.unshift({name,text});
-  wealthState.log=wealthState.log.slice(0,7);
+const businesses = {
+  service:{name:'Service Business',min:100,setup:.16,profit:.9,risk:3,desc:'Freelancing, web design, consulting, repair, or another skill based service.'},
+  content:{name:'Content Creation Business',min:100,setup:.18,profit:.45,risk:5,desc:'YouTube, streaming, podcasts, newsletters, short form content, sponsorships, and digital products.'},
+  ecommerce:{name:'E Commerce Brand',min:500,setup:.34,profit:.55,risk:8,desc:'Products, inventory, fulfillment, paid ads, customer support, and brand building.'},
+  cleaning:{name:'Cleaning Company',min:1000,setup:.28,profit:.65,risk:4,desc:'Residential or commercial cleaning with crews, equipment, scheduling, and recurring contracts.'},
+  foodtruck:{name:'Food Truck',min:15000,setup:.45,profit:.38,risk:9,desc:'A mobile food business with permits, food costs, staffing, location risk, and event revenue.'},
+  trucking:{name:'Trucking Company',min:30000,setup:.48,profit:.28,risk:10,desc:'Commercial vehicles, insurance, maintenance, fuel, freight contracts, and drivers.'},
+  saas:{name:'SaaS Startup',min:5000,setup:.4,profit:.3,risk:12,desc:'Software subscriptions with product development, churn, customer acquisition, and scalability.'},
+  restaurant:{name:'Restaurant',min:50000,setup:.52,profit:.2,risk:14,desc:'A physical restaurant with rent, equipment, labor, food waste, reviews, and thin margins.'},
+  realestate:{name:'Real Estate Company',min:25000,setup:.42,profit:.24,risk:8,desc:'Rental properties, flips, property management, leverage, vacancies, and appreciation.'},
+  agency:{name:'Creative or Marketing Agency',min:500,setup:.22,profit:.75,risk:5,desc:'Client services with retainers, contractors, project delivery, and account growth.'}
+};
+
+function startBusiness(type){
+  const b=businesses[type];
+  const raw=Math.max(b.min,scaleCost(b.setup,b.min,wealthState.start*.7));
+  const cost=availableCashCost(raw);
+  wealthState.cash-=cost;
+  wealthState.businessValue+=cost*.72;
+  wealthState.annualProfit+=Math.max(200,cost*b.profit);
+  wealthState.risk+=b.risk;
+  wealthState.flags.businessType=type;
+  wealthState.flags.businessName=b.name;
+  return `You committed ${wfmt(cost)} to ${b.name}. ${b.desc}`;
+}
+
+function businessOptions(){
+  const order=['service','content','agency','ecommerce','cleaning','saas','foodtruck','realestate','trucking','restaurant'];
+  return order.filter(k=>wealthState.start>=businesses[k].min).map(k=>({t:businesses[k].name,d:businesses[k].desc,fx:()=>startBusiness(k)}));
 }
 
 const wealthQuestions = [
-  {id:'firstmove',cat:'STRATEGY',title:'What do you do with your starting money?',text:'Your first move determines what kind of opportunities you will see next.',cond:()=>true,opts:()=>[
-    {t:'Start a service business',d:'Low overhead. Sell a skill before spending heavily.',fx:()=>{const c=scaleCost(.2,100,15000);wealthState.cash-=c;wealthState.businessValue+=c*.7;wealthState.annualProfit+=Math.max(1200,c*1.4);wealthState.risk+=4;wealthState.flags.service=true;return `You put ${wfmt(c)} into a service business and created your first source of operating profit.`;}},
-    {t:'Start an online product business',d:'Inventory, ads, software, and fulfillment create more upside and more ways to fail.',fx:()=>{const c=scaleCost(.35,200,50000);wealthState.cash-=c;wealthState.businessValue+=c*.75;wealthState.annualProfit+=Math.max(800,c*1.1);wealthState.risk+=9;wealthState.flags.ecommerce=true;return `You committed ${wfmt(c)} to an online product business. The upside is higher, but so is the cash pressure.`;}},
-    {t:'Invest first',d:'Use diversified investments while you wait for a better operating opportunity.',fx:()=>{const c=scaleCost(.6,100,5000000);wealthState.cash-=c;wealthState.investments+=c;wealthState.risk-=3;wealthState.flags.investor=true;return `You invested ${wfmt(c)} instead of forcing a business idea too early.`;}},
-    {t:'Keep most of it liquid',d:'Protect your capital and look for a better opportunity later.',fx:()=>{wealthState.risk-=5;wealthState.reputation-=1;wealthState.flags.patient=true;return 'You kept your powder dry. You did not grow quickly, but you preserved flexibility.';}}
+  {id:'businessChoice',cat:'STARTUP',title:'What kind of business do you build?',text:'Your starting capital changes what is realistic. Pick the business you actually want to try to grow over the next five years.',cond:()=>!wealthState.flags.businessType,opts:()=>businessOptions()},
+  {id:'outsideIncome',cat:'CASH FLOW',title:'Do you keep outside income while the business grows?',text:'A young business is under less pressure when it does not have to immediately pay all of your personal bills.',cond:()=>true,opts:()=>[
+    {t:'Keep my main job',d:'Less time, more financial stability.',fx:()=>{addProfit(32000);wealthState.risk-=4;wealthState.flags.job=true;return 'You kept outside income coming in, which gave the business breathing room during slow months.';}},
+    {t:'Work part time',d:'Create more time without losing all outside cash flow.',fx:()=>{addProfit(15000);wealthState.risk-=1;wealthState.flags.parttime=true;return 'Part time income helped cover personal costs while leaving more hours for the business.';}},
+    {t:'Go all in',d:'Maximum focus, maximum dependence on the business.',fx:()=>{addProfit(-12000);wealthState.risk+=7;wealthState.flags.fulltime=true;return 'You went full time. Growth could move faster, but weak months now hit you directly.';}}
   ]},
-  {id:'job',cat:'CASH FLOW',title:'Do you keep earning outside income?',text:'Early businesses fail partly because owners ask them to pay personal bills too soon.',cond:()=>true,opts:()=>[
-    {t:'Keep my job or main income',d:'More time pressure, but your business gets room to breathe.',fx:()=>{wealthState.annualProfit+=30000;wealthState.risk-=5;wealthState.flags.job=true;return 'You kept outside income coming in, giving your investments and businesses more time to grow.';}},
-    {t:'Go all in',d:'More focus, but the business has to support you.',fx:()=>{wealthState.annualProfit-=12000;wealthState.risk+=8;wealthState.flags.fulltime=true;return 'You went full time. Progress can move faster now, but every weak month matters more.';}},
-    {t:'Part time only',d:'Split the difference.',fx:()=>{wealthState.annualProfit+=12000;wealthState.risk-=1;wealthState.flags.parttime=true;return 'You kept part time income while freeing more hours for growth.';}}
+  {id:'banking',cat:'FOUNDATION',title:'How do you handle the money from day one?',text:'Mixing personal and business money makes it harder to know whether you are actually profitable.',cond:()=>!!wealthState.flags.businessType,opts:()=>[
+    {t:'Separate everything',d:'Business account, bookkeeping, taxes, and clean records.',fx:()=>{wealthState.cash-=Math.min(wealthState.cash,300);wealthState.reputation+=3;wealthState.risk-=3;wealthState.flags.cleanBooks=true;return 'You separated the finances and built clean books. It cost a little money but reduced future headaches.';}},
+    {t:'Keep it simple for now',d:'Use spreadsheets and handle it yourself.',fx:()=>{wealthState.risk+=2;return 'You kept the system informal. It saved money now, but errors will be easier to make later.';}},
+    {t:'Hire professional help early',d:'Bookkeeping and tax help from the start.',fx:()=>{const c=Math.min(wealthState.cash,1200);wealthState.cash-=c;wealthState.reputation+=4;wealthState.risk-=5;wealthState.flags.proBooks=true;return `You spent ${wfmt(c)} on professional financial setup and reduced administrative risk.`;}}
   ]},
-  {id:'pricing',cat:'BUSINESS',title:'Customers are interested, but your pricing is unclear',text:'You can win on volume, margin, or positioning. Each path changes the business.',cond:()=>wealthState.flags.service||wealthState.flags.ecommerce,opts:()=>[
-    {t:'Charge more and focus on quality',d:'Fewer customers, stronger margins, higher expectations.',fx:()=>{wealthState.annualProfit*=1.2;wealthState.businessValue*=1.08;wealthState.reputation+=6;wealthState.risk+=2;return 'Higher pricing improved margins and forced you to deliver at a higher level.';}},
-    {t:'Price aggressively for growth',d:'Sacrifice margin to acquire customers quickly.',fx:()=>{wealthState.annualProfit*=1.08;wealthState.businessValue*=1.18;wealthState.cash-=scaleCost(.05,50,10000);wealthState.risk+=5;return 'You traded short term margin for faster customer growth and a larger operation.';}},
-    {t:'Stay conservative',d:'Keep prices stable and avoid disrupting what already works.',fx:()=>{wealthState.reputation+=2;wealthState.risk-=2;return 'You protected a working model instead of chasing growth for its own sake.';}}
+  {id:'pricing',cat:'PRICING',title:'How do you price the business?',text:'Low prices can attract customers quickly, but poor margins can quietly kill a growing company.',cond:()=>!!wealthState.flags.businessType,opts:()=>[
+    {t:'Premium positioning',d:'Fewer customers, stronger margins, higher expectations.',fx:()=>{wealthState.annualProfit*=1.18;wealthState.businessValue*=1.06;wealthState.reputation+=5;wealthState.risk+=1;return 'You moved upmarket. Margins improved, but customers became less forgiving of mistakes.';}},
+    {t:'Competitive middle',d:'Balance affordability with healthy margins.',fx:()=>{wealthState.annualProfit*=1.1;wealthState.businessValue*=1.05;wealthState.reputation+=2;return 'Balanced pricing gave you room to grow without turning every sale into a race to the bottom.';}},
+    {t:'Undercut competitors',d:'Win customers quickly and worry about margins later.',fx:()=>{wealthState.businessValue*=1.13;wealthState.annualProfit*=.94;wealthState.risk+=5;return 'Volume increased, but your margin tightened. Growth looked good on the surface while cash flow became more fragile.';}}
   ]},
-  {id:'marketing',cat:'GROWTH',title:'How much do you spend to grow?',text:'Advertising can create momentum or turn into a very expensive lesson.',cond:()=>wealthState.businessValue>0,opts:()=>[
-    {t:'Test small campaigns',d:'Measure before scaling.',fx:()=>{const c=scaleCost(.04,100,25000);wealthState.cash-=c;wealthState.annualProfit+=c*.7;wealthState.businessValue+=c*.5;wealthState.risk+=1;return `You spent ${wfmt(c)} testing marketing. The measured approach produced useful growth without betting the company.`;}},
-    {t:'Scale hard',d:'Spend aggressively while momentum is available.',fx:()=>{const c=scaleCost(.12,300,100000);wealthState.cash-=c;const good=Math.random()>.35;if(good){wealthState.annualProfit+=c*1.7;wealthState.businessValue+=c*1.2;wealthState.reputation+=5;return `The ${wfmt(c)} campaign hit. Revenue accelerated and the business became substantially more valuable.`;}wealthState.annualProfit-=c*.35;wealthState.risk+=10;return `The ${wfmt(c)} campaign underperformed. You learned how quickly paid growth can eat cash.`;}},
-    {t:'Grow organically',d:'Slower, cheaper, and dependent on execution.',fx:()=>{wealthState.annualProfit*=1.05;wealthState.reputation+=4;wealthState.risk-=1;return 'Organic growth was slower, but customer trust improved and cash stayed protected.';}}
+  {id:'contentPlatform',cat:'CONTENT',title:'Where do you build your audience first?',text:'Content creation becomes a business only when attention turns into repeatable revenue.',cond:()=>businessIs('content'),opts:()=>[
+    {t:'YouTube first',d:'Longer videos, searchable content, ad revenue, sponsors, and a deep back catalog.',fx:()=>{wealthState.cash-=Math.min(wealthState.cash,800);addValue(1200);addProfit(1800);wealthState.risk+=2;wealthState.flags.youtube=true;return 'You built around YouTube. Growth started slower, but each good video had a longer shelf life.';}},
+    {t:'Short form first',d:'TikTok, Reels, and Shorts for faster reach.',fx:()=>{wealthState.cash-=Math.min(wealthState.cash,500);addValue(900);addProfit(900);wealthState.reputation+=5;wealthState.risk+=5;wealthState.flags.shortform=true;return 'Short form gave you faster reach, but the audience was more volatile and harder to monetize deeply.';}},
+    {t:'Streaming first',d:'Build a live community around personality and consistency.',fx:()=>{wealthState.cash-=Math.min(wealthState.cash,1200);addValue(1100);addProfit(1400);wealthState.reputation+=4;wealthState.flags.streaming=true;return 'You focused on live content. A smaller but more loyal community began forming around you.';}},
+    {t:'Podcast or newsletter',d:'Build a direct audience around expertise and recurring attention.',fx:()=>{wealthState.cash-=Math.min(wealthState.cash,600);addValue(700);addProfit(1100);wealthState.risk-=1;wealthState.flags.directAudience=true;return 'You chose a direct audience model that grew slowly but gave you more control over distribution.';}}
   ]},
-  {id:'reinvest',cat:'CAPITAL',title:'You finally have profit. What do you do with it?',text:'A profitable operation can pay you, compound, or become overextended.',cond:()=>wealthState.annualProfit>0,opts:()=>[
-    {t:'Reinvest most of it',d:'Hire, market, improve systems, and expand capacity.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(500,wealthState.annualProfit*.45));wealthState.cash-=c;wealthState.businessValue+=c*1.25;wealthState.annualProfit+=c*.35;wealthState.risk+=4;wealthState.flags.reinvested=true;return `You reinvested ${wfmt(c)}. Your business became larger and more capable, but also more demanding.`;}},
-    {t:'Split profit between business and investments',d:'Build two engines instead of one.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(300,wealthState.annualProfit*.3));wealthState.cash-=c;wealthState.investments+=c*.55;wealthState.businessValue+=c*.45;wealthState.risk-=1;return `You split ${wfmt(c)} between the business and long term investments.`;}},
-    {t:'Take the money',d:'Enjoy the profit and protect liquidity.',fx:()=>{wealthState.risk-=2;wealthState.reputation-=1;wealthState.flags.tookProfit=true;return 'You resisted automatic expansion and kept the profit available.';}}
+  {id:'contentNiche',cat:'CONTENT',title:'What kind of creator do you become?',text:'Your niche affects sponsorship demand, audience loyalty, competition, and how easy it is to sell something later.',cond:()=>businessIs('content'),opts:()=>[
+    {t:'Gaming and entertainment',d:'Large audience, high competition, lots of sponsorship categories.',fx:()=>{wealthState.businessValue*=1.12;wealthState.reputation+=5;wealthState.risk+=4;wealthState.flags.niche='Gaming & Entertainment';return 'You entered gaming and entertainment, where audience potential was huge but standing out required consistency.';}},
+    {t:'Business and money',d:'Higher value audience and stronger sponsor rates, but credibility matters.',fx:()=>{wealthState.annualProfit*=1.18;wealthState.reputation+=3;wealthState.risk+=3;wealthState.flags.niche='Business & Money';return 'A business focused audience monetized well, but every claim you made carried more reputational weight.';}},
+    {t:'Tech and products',d:'Reviews, opinions, affiliate revenue, and brand partnerships.',fx:()=>{wealthState.annualProfit*=1.13;wealthState.businessValue*=1.08;wealthState.flags.niche='Tech';return 'Tech content opened several monetization paths beyond ads, especially affiliates and brand partnerships.';}},
+    {t:'Personality and lifestyle',d:'You become the product. Flexible, but heavily dependent on your personal brand.',fx:()=>{wealthState.reputation+=8;wealthState.risk+=5;wealthState.flags.niche='Lifestyle';return 'The brand centered on you. That created flexibility, but business performance became tied closely to your public image.';}}
   ]},
-  {id:'hire',cat:'OPERATIONS',title:'The workload is becoming too much for one person',text:'Hiring can unlock growth, but payroll continues even when sales slow down.',cond:()=>wealthState.businessValue>3000&&!wealthState.flags.hired,opts:()=>[
-    {t:'Hire one strong person',d:'Add capacity without building a large payroll.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(1000,scaleCost(.08,1000,30000)));wealthState.cash-=c;wealthState.annualProfit+=c*.55;wealthState.businessValue+=c*.6;wealthState.reputation+=3;wealthState.flags.hired=true;return `You invested ${wfmt(c)} into your first hire. Capacity and service quality improved.`;}},
-    {t:'Build a team quickly',d:'Scale before demand gets away from you.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(3000,scaleCost(.18,3000,100000)));wealthState.cash-=c;wealthState.annualProfit+=c*.75;wealthState.businessValue+=c*.8;wealthState.risk+=9;wealthState.flags.hired=true;wealthState.flags.team=true;return `You spent ${wfmt(c)} building a team. The company can handle more work, but payroll is now a serious obligation.`;}},
-    {t:'Stay solo longer',d:'Protect margin and accept slower growth.',fx:()=>{wealthState.risk-=3;wealthState.annualProfit*=.98;wealthState.flags.solo=true;return 'You stayed lean. Growth slowed slightly, but fixed costs remained low.';}}
+  {id:'contentCadence',cat:'CONTENT',title:'How hard do you push your upload schedule?',text:'More content can accelerate growth, but burnout and weaker quality can damage the business.',cond:()=>businessIs('content'),opts:()=>[
+    {t:'Quality over quantity',d:'Publish less often, but make every piece count.',fx:()=>{wealthState.reputation+=7;wealthState.businessValue*=1.08;wealthState.risk-=2;return 'You built a reputation for quality. Growth was steadier than explosive, but the audience trusted the work.';}},
+    {t:'Post constantly',d:'Flood the platforms and learn fast.',fx:()=>{wealthState.businessValue*=1.2;wealthState.annualProfit*=1.08;wealthState.risk+=8;return 'Volume accelerated discovery, but the workload became difficult to sustain.';}},
+    {t:'Build a repeatable schedule',d:'Use a realistic cadence and stick to it.',fx:()=>{wealthState.businessValue*=1.13;wealthState.reputation+=5;wealthState.risk-=1;return 'Consistency became an advantage. The audience knew when to expect you and production stayed manageable.';}}
   ]},
-  {id:'loan',cat:'FINANCE',title:'A lender offers you growth capital',text:'Debt can accelerate a good model or magnify a bad one.',cond:()=>wealthState.businessValue>5000&&wealthState.debt===0,opts:()=>[
-    {t:'Take a conservative loan',d:'Use leverage, but keep the payment manageable.',fx:()=>{const amt=Math.min(250000,Math.max(5000,wealthNetWorth()*.2));wealthState.cash+=amt;wealthState.debt+=amt;wealthState.risk+=5;wealthState.flags.loan=true;return `You borrowed ${wfmt(amt)}. You have more capital, but future mistakes now come with a payment.`;}},
-    {t:'Take the maximum offered',d:'Move faster with significantly more leverage.',fx:()=>{const amt=Math.min(1000000,Math.max(10000,wealthNetWorth()*.5));wealthState.cash+=amt;wealthState.debt+=amt;wealthState.risk+=14;wealthState.flags.loan=true;wealthState.flags.heavyDebt=true;return `You borrowed ${wfmt(amt)} and chose speed over safety.`;}},
-    {t:'Stay debt free',d:'Grow only with money the operation actually earns.',fx:()=>{wealthState.risk-=5;wealthState.reputation+=2;wealthState.flags.noDebt=true;return 'You turned down leverage and kept full control of your downside.';}}
+  {id:'contentMonetize',cat:'CONTENT',title:'Your audience is growing. How do you monetize it?',text:'Ad revenue is only one option. The strongest creator businesses usually stack several revenue streams.',cond:()=>businessIs('content')&&wealthState.businessValue>500,opts:()=>[
+    {t:'Sponsors and ads',d:'Simple and scalable, but dependent on audience size and brand demand.',fx:()=>{addProfit(Math.max(1200,wealthState.businessValue*.32));wealthState.reputation+=2;wealthState.flags.sponsors=true;return 'Sponsorships and platform revenue became the first serious income stream from your audience.';}},
+    {t:'Memberships and community',d:'Convert loyal viewers into recurring monthly revenue.',fx:()=>{addProfit(Math.max(1000,wealthState.businessValue*.24));wealthState.businessValue*=1.1;wealthState.reputation+=5;wealthState.flags.membership=true;return 'A paid community created recurring revenue and made the business less dependent on viral performance.';}},
+    {t:'Digital products',d:'Courses, guides, templates, tools, or other high margin products.',fx:()=>{const c=Math.min(wealthState.cash,2000);wealthState.cash-=c;addProfit(Math.max(1500,c*1.6));wealthState.businessValue+=c*.8;wealthState.risk+=3;wealthState.flags.digitalProducts=true;return `You invested ${wfmt(c)} into digital products and added a higher margin revenue stream.`;}},
+    {t:'Merchandise',d:'Turn audience identity into physical products.',fx:()=>{const c=Math.min(wealthState.cash,3500);wealthState.cash-=c;const win=Math.random()>.35;if(win){addProfit(c*1.2);addValue(c*.7);return `Your ${wfmt(c)} merch launch worked and created both cash flow and brand loyalty.`;}addProfit(-c*.25);wealthState.risk+=4;return 'The merch launch tied up cash in products that moved slower than expected.';}}
   ]},
-  {id:'secondbiz',cat:'EXPANSION',title:'A second business opportunity appears',text:'Diversification sounds smart until two businesses need you at the same time.',cond:()=>wealthState.businessValue>15000&&!wealthState.flags.secondBusiness,opts:()=>[
-    {t:'Launch the second business',d:'Create another income stream.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(3000,wealthNetWorth()*.08));wealthState.cash-=c;wealthState.businessValue+=c*.9;wealthState.annualProfit+=c*.45;wealthState.risk+=8;wealthState.flags.secondBusiness=true;return `You invested ${wfmt(c)} into a second business. Diversification improved, but your attention is now split.`;}},
-    {t:'Stay focused on the winner',d:'Make one company excellent before adding another.',fx:()=>{wealthState.businessValue*=1.07;wealthState.annualProfit*=1.05;wealthState.risk-=2;return 'You stayed focused. The existing company became more efficient instead of more complicated.';}},
-    {t:'Invest outside the business instead',d:'Diversify without creating another operating job.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(2000,wealthNetWorth()*.06));wealthState.cash-=c;wealthState.investments+=c;wealthState.risk-=2;return `You moved ${wfmt(c)} into investments instead of launching another company.`;}}
+  {id:'contentTeam',cat:'CONTENT',title:'Do you keep creating everything yourself?',text:'Editing, thumbnails, research, sponsorships, and publishing can become a full company before you realize it.',cond:()=>businessIs('content')&&wealthState.businessValue>2500,opts:()=>[
+    {t:'Hire an editor',d:'Free your time for ideas and recording.',fx:()=>{const c=Math.min(wealthState.cash,5000);wealthState.cash-=c;addProfit(c*.35);addValue(c*.6);wealthState.risk+=1;wealthState.flags.hired=true;return `You spent ${wfmt(c)} adding editing support. Output became easier to sustain.`;}},
+    {t:'Build a small production team',d:'Editor, thumbnail support, research, and sponsor management.',fx:()=>{const c=Math.min(wealthState.cash,12000);wealthState.cash-=c;addProfit(c*.55);addValue(c*.9);wealthState.risk+=6;wealthState.flags.team=true;return `You invested ${wfmt(c)} in a production team. Capacity increased, but payroll became real.`;}},
+    {t:'Stay solo',d:'Keep margins high and control every creative decision.',fx:()=>{wealthState.annualProfit*=1.03;wealthState.risk+=2;return 'You stayed solo. Margins remained strong, but your own time became the growth ceiling.';}}
   ]},
-  {id:'realestate',cat:'REAL ESTATE',title:'You have enough capital for a property investment',text:'Real estate can create leverage and cash flow, but it also locks up money.',cond:()=>wealthNetWorth()>75000&&!wealthState.flags.realestate,opts:()=>[
-    {t:'Buy a small rental',d:'Add a tangible asset and another income stream.',fx:()=>{const down=Math.min(wealthState.cash,Math.max(15000,wealthNetWorth()*.15));wealthState.cash-=down;wealthState.businessValue+=down*1.4;wealthState.debt+=down*.9;wealthState.annualProfit+=down*.12;wealthState.risk+=4;wealthState.flags.realestate=true;return `You used ${wfmt(down)} as equity in a rental property. Cash flow improved, but leverage increased.`;}},
-    {t:'Buy property with cash',d:'Lower risk, more money tied up.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(50000,wealthNetWorth()*.3));wealthState.cash-=c;wealthState.businessValue+=c;wealthState.annualProfit+=c*.07;wealthState.risk-=1;wealthState.flags.realestate=true;return `You put ${wfmt(c)} into property without taking on new debt.`;}},
-    {t:'Pass',d:'Keep capital liquid for the business.',fx:()=>{wealthState.risk-=1;return 'You passed on property and kept your capital flexible.';}}
+  {id:'agencyRetainer',cat:'AGENCY',title:'A client offers a long term retainer',text:'Retainers stabilize revenue, but one large client can become dangerous if they make up too much of the business.',cond:()=>businessIs('agency','service'),opts:()=>[
+    {t:'Take the retainer',d:'Stable monthly revenue and deeper client dependence.',fx:()=>{addProfit(Math.max(5000,wealthState.businessValue*.35));wealthState.businessValue*=1.12;wealthState.risk+=4;wealthState.flags.bigClient=true;return 'The retainer stabilized cash flow, but the client became important enough that losing them would hurt.';}},
+    {t:'Take it but keep prospecting',d:'Use the stability without becoming dependent.',fx:()=>{addProfit(Math.max(3500,wealthState.businessValue*.25));wealthState.businessValue*=1.09;wealthState.reputation+=4;return 'You took the recurring revenue while continuing to diversify the client base.';}},
+    {t:'Stay project based',d:'More freedom and more sales pressure.',fx:()=>{wealthState.reputation+=3;wealthState.risk+=2;return 'You kept flexibility, but every month still required fresh selling.';}}
   ]},
-  {id:'acquire',cat:'ACQUISITION',title:'A smaller competitor wants to sell',text:'Buying revenue is faster than building it, but hidden problems come with the deal.',cond:()=>wealthNetWorth()>250000&&wealthState.businessValue>50000&&!wealthState.flags.acquired,opts:()=>[
-    {t:'Buy the competitor',d:'Absorb their customers, staff, and problems.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(50000,wealthNetWorth()*.18));wealthState.cash-=c;const good=Math.random()>.3;if(good){wealthState.businessValue+=c*1.35;wealthState.annualProfit+=c*.3;wealthState.reputation+=5;wealthState.flags.acquired=true;return `The ${wfmt(c)} acquisition worked. Customers and cash flow transferred better than expected.`;}wealthState.businessValue+=c*.55;wealthState.annualProfit-=c*.08;wealthState.risk+=10;wealthState.flags.acquired=true;return `The ${wfmt(c)} acquisition came with operational problems you did not fully see before closing.`;}},
-    {t:'Offer a partnership instead',d:'Capture some upside without buying the whole company.',fx:()=>{wealthState.annualProfit*=1.07;wealthState.reputation+=4;wealthState.risk+=1;return 'The partnership expanded reach without tying up as much capital.';}},
-    {t:'Walk away',d:'Growth is not automatically good growth.',fx:()=>{wealthState.risk-=3;return 'You walked away when the deal did not clearly improve the business.';}}
+  {id:'agencyScope',cat:'AGENCY',title:'Clients keep asking for more than they paid for',text:'Scope creep can make a busy agency look successful while margins quietly collapse.',cond:()=>businessIs('agency','service'),opts:()=>[
+    {t:'Enforce scope tightly',d:'Charge for every additional request.',fx:()=>{wealthState.annualProfit*=1.12;wealthState.reputation+=2;wealthState.risk-=2;return 'Clear boundaries protected your margins and trained clients to respect the agreement.';}},
+    {t:'Overdeliver strategically',d:'Do extra work for the clients most likely to refer or renew.',fx:()=>{wealthState.reputation+=7;wealthState.businessValue*=1.08;wealthState.annualProfit*=1.03;return 'Selective overdelivery created goodwill without turning every project into unpaid labor.';}},
+    {t:'Say yes to everything',d:'Keep clients happy now and deal with capacity later.',fx:()=>{wealthState.reputation+=4;wealthState.annualProfit*=.92;wealthState.risk+=6;return 'Clients loved the flexibility, but the business became busier without becoming proportionally more profitable.';}}
   ]},
-  {id:'exit',cat:'EXIT',title:'Someone offers to buy your business',text:'A sale can lock in years of work, but it also ends future upside.',cond:()=>wealthState.businessValue>100000&&!wealthState.flags.exitDecision,opts:()=>[
-    {t:'Sell the business',d:'Turn business value into liquid wealth.',fx:()=>{const sale=wealthState.businessValue*1.15;wealthState.cash+=sale;wealthState.businessValue=0;wealthState.annualProfit*=.25;wealthState.risk-=8;wealthState.flags.exitDecision=true;wealthState.flags.sold=true;return `You sold for about ${wfmt(sale)}. The operating risk disappeared and became cash.`;}},
-    {t:'Sell a minority stake',d:'Take money off the table but keep control.',fx:()=>{const sale=wealthState.businessValue*.3;wealthState.cash+=sale;wealthState.businessValue*=.72;wealthState.annualProfit*=.88;wealthState.risk-=3;wealthState.flags.exitDecision=true;return `You sold a minority stake for roughly ${wfmt(sale)} while keeping control.`;}},
-    {t:'Reject the offer',d:'You believe the business can still compound.',fx:()=>{wealthState.businessValue*=1.08;wealthState.annualProfit*=1.06;wealthState.risk+=3;wealthState.flags.exitDecision=true;return 'You rejected the offer and kept the upside—and the risk.';}}
+  {id:'ecomInventory',cat:'E COMMERCE',title:'Your best product is selling faster than expected',text:'Inventory is both an opportunity and a trap. Too little loses sales. Too much traps cash.',cond:()=>businessIs('ecommerce'),opts:()=>[
+    {t:'Reorder aggressively',d:'Bet on demand continuing.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(500,wealthState.start*.12));wealthState.cash-=c;const good=Math.random()>.3;if(good){addProfit(c*1.4);addValue(c*.8);return `You put ${wfmt(c)} into inventory and demand held up. The bet paid off.`;}addValue(c*.35);wealthState.risk+=7;return 'Demand cooled and too much of your cash ended up sitting on shelves.';}},
+    {t:'Reorder conservatively',d:'Protect cash and accept some stockouts.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(200,wealthState.start*.05));wealthState.cash-=c;addProfit(c*.75);addValue(c*.4);wealthState.risk-=1;return `A smaller ${wfmt(c)} reorder preserved flexibility while still capturing some demand.`;}},
+    {t:'Move to preorder',d:'Let customers fund production before you commit.',fx:()=>{wealthState.annualProfit*=1.08;wealthState.risk-=3;wealthState.reputation-=1;return 'Preorders reduced inventory risk, although some customers disliked waiting.';}}
+  ]},
+  {id:'cleaningContracts',cat:'CLEANING',title:'A commercial property manager offers you a large contract',text:'The contract could transform revenue, but you will need more workers and equipment immediately.',cond:()=>businessIs('cleaning'),opts:()=>[
+    {t:'Take the contract and hire',d:'Scale operations around guaranteed work.',fx:()=>{const c=Math.min(wealthState.cash,8000);wealthState.cash-=c;addProfit(c*.85+8000);addValue(c*.7);wealthState.risk+=4;wealthState.flags.team=true;return 'The commercial contract created recurring revenue and pushed the company beyond small residential jobs.';}},
+    {t:'Negotiate a smaller rollout',d:'Start with fewer properties and prove capacity.',fx:()=>{addProfit(4500);wealthState.reputation+=5;wealthState.risk-=1;return 'A phased rollout protected service quality and still opened the commercial market.';}},
+    {t:'Pass for now',d:'Stay within current capacity.',fx:()=>{wealthState.reputation+=1;wealthState.risk-=3;return 'You protected the operation from growing faster than the team could handle.';}}
+  ]},
+  {id:'saasMvp',cat:'SAAS',title:'The first version of your software is ready',text:'You can launch early and learn from users, or spend more time polishing before anyone sees it.',cond:()=>businessIs('saas'),opts:()=>[
+    {t:'Launch the MVP now',d:'Get real users and real feedback quickly.',fx:()=>{wealthState.businessValue*=1.18;addProfit(2500);wealthState.reputation+=3;wealthState.risk+=4;return 'Launching early exposed flaws, but real customers showed you what actually mattered.';}},
+    {t:'Polish before launch',d:'Spend more time improving the product experience.',fx:()=>{const c=Math.min(wealthState.cash,6000);wealthState.cash-=c;addValue(c*.9);wealthState.reputation+=6;return `You spent ${wfmt(c)} improving the product before launch. Growth started later but with a stronger first impression.`;}},
+    {t:'Invite only beta',d:'Control the rollout and learn from a small group.',fx:()=>{wealthState.businessValue*=1.1;wealthState.risk-=2;wealthState.reputation+=4;return 'The private beta uncovered problems before they reached a larger market.';}}
+  ]},
+  {id:'foodMenu',cat:'FOOD BUSINESS',title:'Your menu is getting too complicated',text:'More options attract more customers, but inventory, prep time, and waste increase quickly.',cond:()=>businessIs('foodtruck','restaurant'),opts:()=>[
+    {t:'Cut down to best sellers',d:'Simplify operations around what customers already love.',fx:()=>{wealthState.annualProfit*=1.13;wealthState.reputation+=4;wealthState.risk-=3;return 'A tighter menu reduced waste and made the kitchen faster.';}},
+    {t:'Keep the broad menu',d:'Serve more tastes and accept the complexity.',fx:()=>{wealthState.businessValue*=1.05;wealthState.annualProfit*=.98;wealthState.risk+=3;return 'Variety helped attract different customers, but complexity continued eating into margins.';}},
+    {t:'Add premium specials',d:'Keep the core menu simple and rotate higher margin limited items.',fx:()=>{wealthState.annualProfit*=1.1;wealthState.reputation+=6;wealthState.risk+=1;return 'Premium specials improved margins without permanently bloating the menu.';}}
+  ]},
+  {id:'truckingFleet',cat:'TRUCKING',title:'Do you add another truck?',text:'A second vehicle can grow revenue quickly, but payments, insurance, repairs, and driver availability grow with it.',cond:()=>businessIs('trucking'),opts:()=>[
+    {t:'Finance another truck',d:'Scale the fleet with debt.',fx:()=>{const equity=Math.min(wealthState.cash,20000);wealthState.cash-=equity;wealthState.debt+=60000;addValue(70000);addProfit(18000);wealthState.risk+=8;return 'You added another truck using leverage. Revenue capacity rose, but so did fixed obligations.';}},
+    {t:'Buy used with cash',d:'Lower payment pressure with more maintenance uncertainty.',fx:()=>{const c=Math.min(wealthState.cash,45000);wealthState.cash-=c;addValue(c*.85);addProfit(c*.25);wealthState.risk+=4;return `You spent ${wfmt(c)} on used equipment and avoided a large new payment.`;}},
+    {t:'Stay with one truck',d:'Protect cash and optimize current routes.',fx:()=>{wealthState.annualProfit*=1.07;wealthState.risk-=3;return 'You focused on utilization instead of expanding the fleet too early.';}}
+  ]},
+  {id:'realEstateDeal',cat:'REAL ESTATE',title:'A small rental property becomes available',text:'The numbers are decent, but buying property will tie up a meaningful part of your capital.',cond:()=>businessIs('realestate'),opts:()=>[
+    {t:'Buy with financing',d:'Use leverage and preserve some cash.',fx:()=>{const down=Math.min(wealthState.cash,Math.max(5000,wealthState.start*.15));wealthState.cash-=down;wealthState.debt+=down*3;addValue(down*3.7);addProfit(down*.18);wealthState.risk+=6;return `You used ${wfmt(down)} as a down payment and used leverage to control a larger asset.`;}},
+    {t:'Buy mostly with cash',d:'Lower risk but tie up more capital.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(10000,wealthState.start*.3));wealthState.cash-=c;addValue(c);addProfit(c*.07);wealthState.risk-=2;return `You put ${wfmt(c)} into property with minimal leverage.`;}},
+    {t:'Pass and wait',d:'Keep cash ready for a stronger deal.',fx:()=>{wealthState.risk-=2;return 'You passed on an acceptable deal rather than confusing activity with opportunity.';}}
+  ]},
+  {id:'generalMarketing',cat:'GROWTH',title:'How do you acquire more customers?',text:'Every business needs a repeatable way to generate demand.',cond:()=>!!wealthState.flags.businessType,opts:()=>[
+    {t:'Test small paid campaigns',d:'Measure results before scaling.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(100,wealthState.start*.04));wealthState.cash-=c;addProfit(c*.55);addValue(c*.45);wealthState.risk+=1;return `You spent ${wfmt(c)} testing customer acquisition and learned which channels actually worked.`;}},
+    {t:'Spend aggressively',d:'Push hard while the business has momentum.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(300,wealthState.start*.1));wealthState.cash-=c;const good=Math.random()>.38;if(good){addProfit(c*1.25);addValue(c);wealthState.reputation+=4;return `The ${wfmt(c)} growth push worked and accelerated the company.`;}addProfit(-c*.25);wealthState.risk+=9;return `The ${wfmt(c)} campaign missed. Growth spending turned into an expensive lesson.`;}},
+    {t:'Grow organically',d:'Use referrals, networking, content, and word of mouth.',fx:()=>{wealthState.businessValue*=1.06;wealthState.reputation+=5;wealthState.risk-=1;return 'Organic growth was slower but built stronger customer trust and protected cash.';}}
+  ]},
+  {id:'firstHire',cat:'OPERATIONS',title:'The workload is becoming too much for one person',text:'Hiring can unlock growth, but payroll does not disappear when sales slow down.',cond:()=>wealthState.businessValue>2500&&!wealthState.flags.hired,opts:()=>[
+    {t:'Hire one strong person',d:'Add capacity without building a large payroll.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(1000,wealthState.start*.06));wealthState.cash-=c;addProfit(c*.45);addValue(c*.6);wealthState.reputation+=3;wealthState.flags.hired=true;return `You invested ${wfmt(c)} into your first hire and increased capacity.`;}},
+    {t:'Use contractors',d:'Flexible labor without committing to full payroll.',fx:()=>{wealthState.annualProfit*=1.06;wealthState.risk+=2;wealthState.flags.contractors=true;return 'Contractors increased flexibility, though quality control required more attention.';}},
+    {t:'Stay solo',d:'Protect margins and accept slower growth.',fx:()=>{wealthState.risk-=2;wealthState.annualProfit*=.99;wealthState.flags.solo=true;return 'You stayed lean and protected fixed costs, but your own time remained the bottleneck.';}}
+  ]},
+  {id:'systems',cat:'OPERATIONS',title:'The business is getting messy behind the scenes',text:'More customers create more invoices, messages, scheduling, support, and mistakes.',cond:()=>wealthState.businessValue>5000,opts:()=>[
+    {t:'Invest in systems and automation',d:'Spend money to make the company less dependent on memory and manual work.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(500,wealthState.start*.03));wealthState.cash-=c;addValue(c*.9);wealthState.annualProfit*=1.06;wealthState.risk-=3;return `You spent ${wfmt(c)} on systems that improved efficiency and reduced errors.`;}},
+    {t:'Hire an operations person',d:'Put a human in charge of keeping everything organized.',fx:()=>{const c=Math.min(wealthState.cash,6000);wealthState.cash-=c;addProfit(c*.25);addValue(c*.55);wealthState.risk-=2;return 'Operations support reduced chaos and gave you more time to focus on growth.';}},
+    {t:'Keep doing it manually',d:'Save money and accept more complexity.',fx:()=>{wealthState.risk+=6;return 'You saved the cash, but operational mistakes became more likely as volume increased.';}}
+  ]},
+  {id:'loan',cat:'FINANCE',title:'A lender offers growth capital',text:'Debt can accelerate a good model or magnify a bad one.',cond:()=>wealthState.businessValue>5000&&wealthState.debt===0,opts:()=>[
+    {t:'Take a conservative loan',d:'Use leverage without making the payment overwhelming.',fx:()=>{const amt=Math.min(250000,Math.max(5000,wealthNetWorth()*.18));wealthState.cash+=amt;wealthState.debt+=amt;wealthState.risk+=5;wealthState.flags.loan=true;return `You borrowed ${wfmt(amt)} and added capital without maxing out your borrowing capacity.`;}},
+    {t:'Take the maximum offered',d:'Move much faster with much more leverage.',fx:()=>{const amt=Math.min(1000000,Math.max(10000,wealthNetWorth()*.45));wealthState.cash+=amt;wealthState.debt+=amt;wealthState.risk+=13;wealthState.flags.loan=true;wealthState.flags.heavyDebt=true;return `You borrowed ${wfmt(amt)} and chose speed over safety.`;}},
+    {t:'Stay debt free',d:'Grow only with money the business actually earns.',fx:()=>{wealthState.risk-=5;wealthState.reputation+=2;wealthState.flags.noDebt=true;return 'You rejected leverage and kept the downside under tighter control.';}}
+  ]},
+  {id:'reinvest',cat:'CAPITAL',title:'The business is finally producing meaningful profit',text:'You can take the money, reinvest it, or diversify outside the company.',cond:()=>wealthState.annualProfit>1000,opts:()=>[
+    {t:'Reinvest heavily',d:'Put profit back into growth.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(300,wealthState.annualProfit*.3));wealthState.cash-=c;addValue(c*1.15);addProfit(c*.28);wealthState.risk+=4;wealthState.flags.reinvested=true;return `You reinvested ${wfmt(c)} and increased the business's earning capacity.`;}},
+    {t:'Split between business and investments',d:'Build two engines instead of one.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(200,wealthState.annualProfit*.22));wealthState.cash-=c;wealthState.investments+=c*.55;addValue(c*.45);wealthState.risk-=1;return `You split ${wfmt(c)} between the company and outside investments.`;}},
+    {t:'Keep the profit liquid',d:'Preserve flexibility and reduce pressure.',fx:()=>{wealthState.risk-=2;wealthState.flags.tookProfit=true;return 'You kept profit available instead of automatically chasing more growth.';}}
+  ]},
+  {id:'secondBusiness',cat:'EXPANSION',title:'Do you start another business?',text:'A second company can diversify income or divide your attention at exactly the wrong time.',cond:()=>wealthState.businessValue>20000&&!wealthState.flags.secondBusiness,opts:()=>[
+    {t:'Launch a second company',d:'Create another operating income stream.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(2500,wealthNetWorth()*.07));wealthState.cash-=c;addValue(c*.85);addProfit(c*.35);wealthState.risk+=7;wealthState.flags.secondBusiness=true;return `You invested ${wfmt(c)} into another company and increased both diversification and complexity.`;}},
+    {t:'Stay focused on the winner',d:'Make the first company stronger instead.',fx:()=>{wealthState.businessValue*=1.08;wealthState.annualProfit*=1.05;wealthState.risk-=2;return 'Focus improved execution and made the existing business more efficient.';}},
+    {t:'Invest outside the business',d:'Diversify without adding another operating job.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(1000,wealthNetWorth()*.05));wealthState.cash-=c;wealthState.investments+=c;wealthState.risk-=2;return `You moved ${wfmt(c)} into outside investments rather than another business.`;}}
+  ]},
+  {id:'competitor',cat:'COMPETITION',title:'A competitor starts undercutting your prices',text:'They are openly targeting your customers and promising similar service for less.',cond:()=>wealthState.businessValue>8000,opts:()=>[
+    {t:'Compete on quality',d:'Refuse the price war and strengthen the offer.',fx:()=>{wealthState.reputation+=7;wealthState.businessValue*=1.06;wealthState.risk-=1;return 'You protected positioning instead of training customers to choose only on price.';}},
+    {t:'Match their prices',d:'Protect market share even if margins shrink.',fx:()=>{wealthState.businessValue*=1.08;wealthState.annualProfit*=.94;wealthState.risk+=2;return 'You held more customers, but lower pricing weakened margins.';}},
+    {t:'Outspend them on growth',d:'Use marketing and sales to overwhelm the challenge.',fx:()=>{const c=Math.min(wealthState.cash,5000);wealthState.cash-=c;addValue(c*.7);addProfit(c*.25);wealthState.risk+=5;return `You spent ${wfmt(c)} defending market share and pushed the fight into customer acquisition.`;}}
+  ]},
+  {id:'acquisition',cat:'ACQUISITION',title:'A smaller competitor wants to sell',text:'Buying revenue is faster than building it, but hidden problems come with the deal.',cond:()=>wealthNetWorth()>150000&&wealthState.businessValue>40000&&!wealthState.flags.acquired,opts:()=>[
+    {t:'Buy the competitor',d:'Absorb customers, staff, systems, and hidden problems.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(25000,wealthNetWorth()*.14));wealthState.cash-=c;const good=Math.random()>.33;if(good){addValue(c*1.25);addProfit(c*.24);wealthState.reputation+=5;wealthState.flags.acquired=true;return `The ${wfmt(c)} acquisition worked and accelerated scale.`;}addValue(c*.5);addProfit(-c*.07);wealthState.risk+=10;wealthState.flags.acquired=true;return `The ${wfmt(c)} deal came with more operational problems than the seller disclosed.`;}},
+    {t:'Offer a partnership',d:'Capture some upside without buying the whole company.',fx:()=>{wealthState.annualProfit*=1.07;wealthState.reputation+=4;wealthState.risk+=1;wealthState.flags.acquired=true;return 'A partnership expanded reach without putting as much capital at risk.';}},
+    {t:'Walk away',d:'Keep building what you already understand.',fx:()=>{wealthState.risk-=2;wealthState.flags.acquired=true;return 'You passed on the deal and protected focus and liquidity.';}}
+  ]},
+  {id:'investments',cat:'INVESTING',title:'Do you move some money outside the business?',text:'A company can make you wealthy, but concentration can also make one bad year devastating.',cond:()=>wealthState.cash>1000,opts:()=>[
+    {t:'Build a diversified portfolio',d:'Move part of cash into long term investments.',fx:()=>{const c=Math.min(wealthState.cash,Math.max(500,wealthState.cash*.2));wealthState.cash-=c;wealthState.investments+=c;wealthState.risk-=4;return `You moved ${wfmt(c)} into diversified investments and reduced dependence on the business.`;}},
+    {t:'Keep everything in the company',d:'Concentrate capital where you have the most control.',fx:()=>{wealthState.businessValue*=1.05;wealthState.risk+=4;return 'You stayed concentrated. The upside increased, but so did dependence on one company.';}},
+    {t:'Keep cash reserves',d:'Prioritize liquidity over returns.',fx:()=>{wealthState.risk-=3;return 'You kept a larger cash cushion for opportunities and emergencies.';}}
+  ]},
+  {id:'exitOffer',cat:'EXIT',title:'Someone offers to buy your business',text:'The offer is large enough to turn years of work into cash today, but selling ends some of your future upside.',cond:()=>wealthState.businessValue>50000&&!wealthState.flags.exitDecision,opts:()=>[
+    {t:'Sell the business',d:'Lock in the value and convert the company into cash.',fx:()=>{const sale=wealthState.businessValue*1.08;wealthState.cash+=sale;wealthState.businessValue=0;wealthState.annualProfit*=.45;wealthState.risk-=8;wealthState.flags.exitDecision=true;wealthState.flags.soldBusiness=true;return `You sold for roughly ${wfmt(sale)} and converted years of operating risk into liquid wealth.`;}},
+    {t:'Sell a minority stake',d:'Take money off the table while keeping control.',fx:()=>{const proceeds=wealthState.businessValue*.28;wealthState.cash+=proceeds;wealthState.businessValue*=.78;wealthState.risk-=3;wealthState.flags.exitDecision=true;return `You took ${wfmt(proceeds)} off the table while keeping control of the company.`;}},
+    {t:'Keep building',d:'Reject the offer and bet on a larger future outcome.',fx:()=>{wealthState.businessValue*=1.07;wealthState.risk+=4;wealthState.flags.exitDecision=true;return 'You rejected the offer and kept betting on the company you built.';}}
+  ]},
+  {id:'succession',cat:'OWNER',title:'How dependent is the business on you?',text:'A company that stops when you stop is closer to a job than an asset.',cond:()=>wealthState.businessValue>30000,opts:()=>[
+    {t:'Build management underneath me',d:'Train people to run the operation without you.',fx:()=>{const c=Math.min(wealthState.cash,8000);wealthState.cash-=c;wealthState.businessValue*=1.13;wealthState.risk-=5;wealthState.flags.management=true;return `You spent ${wfmt(c)} building management depth and made the company more valuable without your daily presence.`;}},
+    {t:'Stay deeply involved',d:'Keep control and maximize your personal influence.',fx:()=>{wealthState.annualProfit*=1.04;wealthState.risk+=3;return 'You kept strong control, but the company remained dependent on you.';}},
+    {t:'Automate aggressively',d:'Use systems and software to reduce owner dependence.',fx:()=>{const c=Math.min(wealthState.cash,6000);wealthState.cash-=c;wealthState.businessValue*=1.1;wealthState.annualProfit*=1.06;wealthState.risk+=1;return `You spent ${wfmt(c)} reducing manual work and improving scalability.`;}}
   ]}
 ];
 
-const repeatable = [
-  {cat:'INVESTING',title:'Where do you put excess cash this year?',text:'Idle money gives you flexibility. Invested money gives you a chance to compound.',opts:()=>[
-    {t:'Broad market investments',d:'Diversified and liquid.',fx:()=>{const c=Math.min(wealthState.cash*.25,Math.max(100,wealthNetWorth()*.05));wealthState.cash-=c;wealthState.investments+=c;wealthState.risk-=1;return `You invested ${wfmt(c)} into diversified markets.`;}},
-    {t:'Put it back into the business',d:'Higher concentration, potentially higher return.',fx:()=>{const c=Math.min(wealthState.cash*.25,Math.max(100,wealthNetWorth()*.05));wealthState.cash-=c;wealthState.businessValue+=c*1.08;wealthState.annualProfit+=c*.16;wealthState.risk+=3;return `You reinvested ${wfmt(c)} into the operating business.`;}},
-    {t:'Hold cash',d:'No return, but maximum flexibility.',fx:()=>{wealthState.risk-=2;return 'You held cash and preserved your ability to react to the next opportunity.';}}
-  ]},
-  {cat:'OPERATIONS',title:'A competitor starts undercutting your prices',text:'Their offer is cheaper and customers are noticing.',opts:()=>[
-    {t:'Cut prices too',d:'Protect volume, sacrifice margin.',fx:()=>{wealthState.annualProfit*=.9;wealthState.businessValue*=1.03;wealthState.risk+=2;return 'You defended market share, but margins tightened.';}},
-    {t:'Differentiate instead',d:'Improve service, quality, or positioning.',fx:()=>{const c=Math.min(wealthState.cash*.08,Math.max(100,wealthState.start*.02));wealthState.cash-=c;wealthState.reputation+=6;wealthState.annualProfit*=1.05;return `You spent ${wfmt(c)} improving the offer instead of racing to the bottom.`;}},
-    {t:'Ignore them',d:'Trust your existing customers.',fx:()=>{if(Math.random()>.55){wealthState.annualProfit*=1.02;return 'The competitor faded and your customers stayed.';}wealthState.annualProfit*=.9;wealthState.reputation-=2;return 'The competitor took enough customers to hurt your revenue.';}}
-  ]},
-  {cat:'RISK',title:'A high return opportunity lands in your inbox',text:'The pitch looks convincing. The return is much higher than normal.',opts:()=>[
-    {t:'Put 10% of my cash into it',d:'Take a controlled speculative shot.',fx:()=>{const c=wealthState.cash*.1;wealthState.cash-=c;if(Math.random()>.45){wealthState.investments+=c*1.8;return `The bet worked. ${wfmt(c)} grew sharply.`;}return `The ${wfmt(c)} speculative bet failed and most of the money disappeared.`;}},
-    {t:'Go big',d:'Risk 30% of available cash.',fx:()=>{const c=wealthState.cash*.3;wealthState.cash-=c;wealthState.risk+=10;if(Math.random()>.55){wealthState.investments+=c*2.1;return `The aggressive bet paid off and created a major gain.`;}return `The aggressive bet failed. ${wfmt(c)} left your balance sheet.`;}},
-    {t:'Pass',d:'If the return looks abnormal, the risk probably is too.',fx:()=>{wealthState.risk-=3;return 'You passed and protected your capital.';}}
-  ]}
+const wealthEvents = [
+  {id:'greatYear',name:'Strong economy',text:'Customer demand runs hotter than expected.',apply:()=>{wealthState.annualProfit*=1.12;wealthState.businessValue*=1.08;}},
+  {id:'recession',name:'Economic slowdown',text:'Customers cut spending and sales become harder.',apply:()=>{const mult=wealthState.difficulty==='brutal'?.74:.84;wealthState.annualProfit*=mult;wealthState.businessValue*=.92;wealthState.risk+=4;}},
+  {id:'referral',name:'Major referral',text:'One happy customer sends a wave of new business.',apply:()=>{addProfit(Math.max(500,wealthState.businessValue*.08));wealthState.reputation+=4;}},
+  {id:'taxBill',name:'Tax surprise',text:'You owe more than expected after a profitable stretch.',apply:()=>{const c=Math.min(wealthState.cash,Math.max(200,Math.abs(wealthState.annualProfit)*.08));wealthState.cash-=c;}},
+  {id:'marketGain',name:'Investment markets rise',text:'Your diversified investments have a strong year.',cond:()=>wealthState.investments>0,apply:()=>{wealthState.investments*=1.1;}},
+  {id:'marketDrop',name:'Market correction',text:'Outside investments fall temporarily.',cond:()=>wealthState.investments>0,apply:()=>{wealthState.investments*=.9;}},
+  {id:'employeeIssue',name:'Staffing problem',text:'An unexpected employee issue disrupts operations.',cond:()=>wealthState.flags.hired||wealthState.flags.team,apply:()=>{addProfit(-Math.max(500,wealthState.businessValue*.025));wealthState.reputation-=2;}},
+  {id:'viral',name:'Unexpected attention',text:'Something about your business catches public attention and demand spikes.',apply:()=>{wealthState.businessValue*=1.1;addProfit(Math.max(400,wealthState.businessValue*.04));wealthState.reputation+=5;}},
+  {id:'platformChange',name:'Platform algorithm shift',text:'A major platform changes distribution and your reach becomes less predictable.',cond:()=>businessIs('content'),apply:()=>{wealthState.annualProfit*=.9;wealthState.risk+=4;}},
+  {id:'sponsorWin',name:'Major sponsor arrives',text:'A brand offers a larger than normal creator partnership.',cond:()=>businessIs('content'),apply:()=>{addProfit(Math.max(2000,wealthState.businessValue*.12));wealthState.reputation+=3;}},
+  {id:'chargeback',name:'Customer dispute wave',text:'Refunds or chargebacks hurt a month of sales.',cond:()=>businessIs('ecommerce'),apply:()=>{addProfit(-Math.max(500,wealthState.businessValue*.035));wealthState.reputation-=3;}},
+  {id:'commercialLead',name:'Commercial lead',text:'A larger company asks about a recurring service contract.',cond:()=>businessIs('service','agency','cleaning'),apply:()=>{addProfit(Math.max(1200,wealthState.businessValue*.06));wealthState.reputation+=3;}},
+  {id:'fuelSpike',name:'Fuel prices spike',text:'Operating costs jump unexpectedly.',cond:()=>businessIs('trucking','foodtruck'),apply:()=>{wealthState.annualProfit*=.9;}},
+  {id:'vacancy',name:'Property vacancy',text:'A unit sits empty longer than planned.',cond:()=>businessIs('realestate'),apply:()=>{addProfit(-Math.max(1000,wealthState.businessValue*.025));}},
+  {id:'reviewBoost',name:'Excellent reviews',text:'A run of strong customer reviews increases trust and conversion.',apply:()=>{wealthState.reputation+=6;wealthState.businessValue*=1.04;}},
+  {id:'softwareBug',name:'Production bug',text:'A software issue disrupts customers and support volume jumps.',cond:()=>businessIs('saas'),apply:()=>{addProfit(-Math.max(1000,wealthState.businessValue*.03));wealthState.reputation-=4;}},
+  {id:'equipment',name:'Equipment failure',text:'Essential equipment needs an unexpected replacement.',cond:()=>businessIs('cleaning','foodtruck','restaurant','trucking'),apply:()=>{wealthState.cash-=Math.min(wealthState.cash,Math.max(600,wealthState.businessValue*.02));}},
+  {id:'competitorCloses',name:'Competitor closes',text:'A nearby competitor exits the market and customers start looking for alternatives.',apply:()=>{wealthState.businessValue*=1.07;addProfit(Math.max(500,wealthState.businessValue*.035));}}
 ];
 
-function availableWealthQuestions(){ return wealthQuestions.filter(q=>!wealthState.used.has(q.id)&&q.cond()); }
+function eligibleWealthQuestions(){ return wealthQuestions.filter(q=>!wealthState.used.has(q.id)&&q.cond()); }
 
-function renderWealth(){
-  W$('wealth-networth').textContent=wfmt(wealthNetWorth());
-  W$('wealth-cash').textContent=wfmt(wealthState.cash);
-  W$('wealth-profit').textContent=wfmt(wealthState.annualProfit);
-  W$('wealth-business-value').textContent=wfmt(wealthState.businessValue);
-  W$('wealth-investments').textContent=wfmt(wealthState.investments);
-  W$('wealth-debt').textContent=wfmt(wealthState.debt);
-  W$('wealth-risk').textContent=Math.round(wealthState.risk)+'/100';
-  W$('wealth-reputation').textContent=Math.round(wealthState.reputation)+'/100';
-  const items=[];
-  if(wealthState.flags.service) items.push(['Business','Service company']);
-  if(wealthState.flags.ecommerce) items.push(['Business','Online products']);
-  if(wealthState.flags.realestate) items.push(['Assets','Rental property']);
-  if(wealthState.flags.team) items.push(['Team','Growing']); else if(wealthState.flags.hired) items.push(['Team','First hire']);
-  if(wealthState.flags.loan) items.push(['Financing',wealthState.flags.heavyDebt?'Heavy leverage':'Business loan']);
-  items.push(['Strategy',wealthState.style]);
-  W$('wealth-summary').innerHTML=items.map(x=>`<div class="summary-row"><span>${x[0]}</span><span>${x[1]}</span></div>`).join('');
-  W$('wealth-log').innerHTML=wealthState.log.length?wealthState.log.map(x=>`<div class="event-item"><strong>${x.name}</strong>${x.text}</div>`).join(''):'<div class="event-item">Your financial decisions will appear here.</div>';
+function chooseWealthQuestion(){
+  if(wealthState.decision>=wealthState.maxDecisions||wealthState.year>5){ finishWealthGame(); return; }
+  const eligible=eligibleWealthQuestions();
+  if(!eligible.length){ finishWealthGame(); return; }
+  const specific=eligible.filter(q=>['CONTENT','AGENCY','E COMMERCE','CLEANING','SAAS','FOOD TRUCK','FOOD BUSINESS','RESTAURANT','TRUCKING','REAL ESTATE'].includes(q.cat));
+  const item=specific.length&&Math.random()<.6?wpick(specific):wpick(eligible);
+  wealthState.used.add(item.id);
+  renderWealthQuestion(item);
 }
 
-function wealthChapter(){return ['Survive first. Scale second.','Your model starts getting tested.','Growth creates new problems.','The bigger you get, the bigger the stakes.','Now the outcome becomes clear.'][Math.min(4,wealthState.year-1)];}
-
-function nextWealthQuestion(){
-  if(wealthState.decision>=wealthState.maxDecisions||wealthState.year>5){finishWealth();return;}
-  let q;
-  const available=availableWealthQuestions();
-  if(available.length && Math.random()>.28){q=wpick(available);wealthState.used.add(q.id);} else q=wpick(repeatable);
-  W$('wealth-year').textContent=wealthState.year;
-  W$('wealth-chapter').textContent=wealthChapter();
-  W$('wealth-category').textContent=q.cat;
+function renderWealthQuestion(item){
+  W$('wealth-category').textContent=item.cat;
   W$('wealth-progress').textContent=`Decision ${wealthState.decision+1} of ${wealthState.maxDecisions}`;
-  W$('wealth-question-title').textContent=q.title;
-  W$('wealth-question-text').textContent=q.text;
+  W$('wealth-question-title').textContent=item.title;
+  W$('wealth-question-text').textContent=item.text;
+  W$('wealth-year').textContent=wealthState.year;
+  W$('wealth-chapter').textContent=['Find the model.','Make it repeatable.','Scale without breaking it.','Protect what you built.','Turn the business into wealth.'][Math.min(wealthState.year-1,4)];
   const wrap=W$('wealth-choices');wrap.innerHTML='';
-  q.opts().forEach((o,i)=>{
+  item.opts().forEach((o,i)=>{
     const b=document.createElement('button');b.className='choice';
     b.innerHTML=`<strong>${String.fromCharCode(65+i)}. ${o.t}</strong><span>${o.d}</span>`;
-    b.onclick=()=>{const before=wealthNetWorth();const text=o.fx();wealthState.risk=wclamp(wealthState.risk,0,100);wealthState.reputation=wclamp(wealthState.reputation,0,100);wealthState.cash=Math.max(0,wealthState.cash);wealthState.history.push({year:wealthState.year,choice:o.t,text,before,after:wealthNetWorth()});wlog(o.t,text);wealthState.decision++;if(wealthState.decision%5===0){endWealthYear();wealthState.year++;}renderWealth();setTimeout(nextWealthQuestion,100);};
+    b.onclick=()=>{
+      const result=o.fx();
+      wealthState.risk=wclamp(wealthState.risk,0,100);wealthState.reputation=wclamp(wealthState.reputation,0,100);wealthState.cash=Math.max(0,wealthState.cash);
+      wlog(o.t,result);pushHistory(item.title,o.t,result);wealthState.decision++;
+      if(wealthState.decision%6===0){ endWealthYear();wealthState.year++; }
+      setTimeout(chooseWealthQuestion,100);
+    };
     wrap.appendChild(b);
   });
-  renderWealth();
+  renderWealthStats();
 }
 
 function endWealthYear(){
-  const diff=wealthState.difficulty;
-  const profitMultiplier=diff==='friendly'?1.08:diff==='brutal'?.9:1;
-  const operating=wealthState.annualProfit*profitMultiplier;
+  const difficulty=wealthState.difficulty==='friendly'?1.08:wealthState.difficulty==='brutal'?.88:1;
+  const operating=wealthState.annualProfit*difficulty;
   wealthState.cash+=operating;
-  const market=(diff==='brutal'?-0.01:0.02)+(Math.random()*(diff==='brutal'?.14:.1)-(diff==='brutal'?.08:.04));
-  wealthState.investments*=1+market;
-  wealthState.businessValue*=1+(wealthState.annualProfit>0?.06:-.08);
-  if(wealthState.debt>0){
-    const interest=wealthState.debt*(diff==='brutal'?.09:.065);
-    wealthState.cash-=Math.min(wealthState.cash,interest);
-    if(wealthState.cash>wealthState.debt*.12){const pay=Math.min(wealthState.debt,wealthState.cash*.08);wealthState.cash-=pay;wealthState.debt-=pay;}
-  }
-  const roll=Math.random();
-  if(roll<.18){const hit=Math.min(wealthState.cash,Math.max(100,wealthNetWorth()*.04));wealthState.cash-=hit;wlog('Unexpected setback',`A slow period, repair, refund, or operational problem cost about ${wfmt(hit)}.`);}
-  else if(roll>.86){const gain=Math.max(100,wealthState.annualProfit*.18);wealthState.cash+=gain;wlog('Strong year',`Unexpected demand added roughly ${wfmt(gain)} in extra cash.`);}
+  if(wealthState.debt>0){const interest=wealthState.debt*(wealthState.difficulty==='brutal'?.095:.07);wealthState.cash-=Math.min(wealthState.cash,interest);}
+  if(wealthState.investments>0) wealthState.investments*=wealthState.difficulty==='brutal'?1.025:1.05;
+  wealthState.businessValue*=1+(Math.max(-.05,Math.min(.12,operating/Math.max(1,wealthState.businessValue)*.08)));
+  const available=wealthEvents.filter(e=>!wealthState.usedEvents.has(e.id)&&(!e.cond||e.cond()));
+  if(available.length){const e=wpick(available);wealthState.usedEvents.add(e.id);e.apply();wlog(e.name,e.text);wealthState.history.push({year:wealthState.year,question:'Yearly event',option:e.name,result:e.text});}
+  if(wealthState.cash<0){wealthState.debt+=Math.abs(wealthState.cash);wealthState.cash=0;}
+  wealthState.risk=wclamp(wealthState.risk,0,100);wealthState.reputation=wclamp(wealthState.reputation,0,100);
 }
 
-function wealthEndingTitle(roi,nw){
-  if(nw<=0||roi<=-80)return 'WIPED OUT.';
-  if(roi<0)return 'THE LOSS.';
-  if(roi<25)return 'STILL STANDING.';
-  if(roi<100)return 'PROFITABLE.';
-  if(roi<500)return 'THE BUILDER.';
-  return 'THE MULTIPLIER.';
+function renderWealthStats(){
+  W$('wealth-networth').textContent=wfmt(wealthNetWorth());W$('wealth-cash').textContent=wfmt(wealthState.cash);W$('wealth-profit').textContent=wfmt(wealthState.annualProfit);W$('wealth-business-value').textContent=wfmt(wealthState.businessValue);W$('wealth-investments').textContent=wfmt(wealthState.investments);W$('wealth-debt').textContent=wfmt(wealthState.debt);W$('wealth-risk').textContent=Math.round(wealthState.risk)+'/100';W$('wealth-reputation').textContent=Math.round(wealthState.reputation)+'/100';
+  const rows=[];
+  if(wealthState.flags.businessName) rows.push(['Business',wealthState.flags.businessName]);if(wealthState.flags.niche) rows.push(['Niche',wealthState.flags.niche]);if(wealthState.flags.job) rows.push(['Outside income','Full time job']);else if(wealthState.flags.parttime) rows.push(['Outside income','Part time']);else if(wealthState.flags.fulltime) rows.push(['Owner status','Full time']);if(wealthState.flags.hired||wealthState.flags.team) rows.push(['Team',wealthState.flags.team?'Growing team':'First hire']);if(wealthState.flags.loan) rows.push(['Financing','Business debt']);if(wealthState.flags.management) rows.push(['Operations','Management layer']);rows.push(['Questions used',`${wealthState.used.size} unique`]);
+  W$('wealth-summary').innerHTML=rows.map(r=>`<div class="summary-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  W$('wealth-log').innerHTML=wealthState.log.length?wealthState.log.map(x=>`<div class="event-item"><strong>${x.name}</strong>${x.text}</div>`).join(''):'<div class="event-item">Your business decisions will appear here.</div>';
 }
 
-function finishWealth(){
+function finishWealthGame(){
   showOnly('wealth-end-screen');
-  const nw=wealthNetWorth();const gain=nw-wealthState.start;const roi=wealthState.start?gain/wealthState.start*100:0;
-  W$('wealth-ending-title').textContent=wealthEndingTitle(roi,nw);
-  W$('wealth-end-start').textContent=wfmt(wealthState.start);
-  W$('wealth-end-networth').textContent=wfmt(nw);
-  W$('wealth-end-gain').textContent=(gain>=0?'+':'')+wfmt(gain);
-  W$('wealth-end-roi').textContent=`${roi>=0?'+':''}${roi.toFixed(1)}%`;
-  W$('wealth-end-profit').textContent=wfmt(wealthState.annualProfit);
-  W$('wealth-end-debt').textContent=wfmt(wealthState.debt);
-
-  const first=wealthState.history.slice(0,5);
-  const middle=wealthState.history.slice(5,15);
-  const last=wealthState.history.slice(15);
-  const strongest=[...wealthState.history].sort((a,b)=>(b.after-b.before)-(a.after-a.before))[0];
-  const weakest=[...wealthState.history].sort((a,b)=>(a.after-a.before)-(b.after-b.before))[0];
-  let story=`You started with ${wfmt(wealthState.start)} and treated it as working capital rather than guaranteed security. `;
-  if(first.length) story+=`In the beginning, ${first.map(x=>x.text).slice(0,2).join(' ')} `;
-  if(middle.length) story+=`By the middle years, the operation had become more complicated. ${middle.map(x=>x.text).slice(-2).join(' ')} `;
-  if(last.length) story+=`During the final stretch, ${last.map(x=>x.text).slice(-2).join(' ')} `;
-  story+=`Five years later, your net worth is ${wfmt(nw)}, a ${roi>=0?'gain':'loss'} of ${wfmt(Math.abs(gain))} from where you began. `;
-  if(wealthState.debt>0) story+=`You still carry ${wfmt(wealthState.debt)} in debt, so part of your growth came with leverage. `;
-  if(wealthState.annualProfit>0) story+=`Your current operation is producing about ${wfmt(wealthState.annualProfit)} in annual profit before future changes in the economy.`;
-  W$('wealth-ending-story').textContent=story;
-
-  const impacts=[];
-  if(strongest) impacts.push(`<div class="impact-card"><strong>Best move</strong><p>${strongest.choice}: ${strongest.text}</p></div>`);
-  if(weakest) impacts.push(`<div class="impact-card"><strong>Most expensive move</strong><p>${weakest.choice}: ${weakest.text}</p></div>`);
-  impacts.push(`<div class="impact-card"><strong>Capital result</strong><p>Your starting ${wfmt(wealthState.start)} became ${wfmt(nw)} after five years, for a total return of ${roi.toFixed(1)}%.</p></div>`);
-  W$('wealth-ending-impacts').innerHTML=impacts.join('');
+  const nw=wealthNetWorth(),gain=nw-wealthState.start,roi=wealthState.start?gain/wealthState.start*100:0;
+  let title='STILL STANDING.';if(nw<=0||roi<-80)title='WIPED OUT.';else if(roi<0)title='THE BUSINESS LOST MONEY.';else if(roi<25)title='SMALL WIN.';else if(roi<100)title='PROFITABLE.';else if(roi<500)title='SERIOUS GROWTH.';else title='WEALTH BUILDER.';
+  W$('wealth-ending-title').textContent=title;
+  const type=wealthState.flags.businessName||'business';const path=[`You started with ${wfmt(wealthState.start)} and chose to build a ${type}.`];
+  if(wealthState.flags.niche)path.push(`Your content focused on ${wealthState.flags.niche}, which shaped the audience and monetization options available to you.`);if(wealthState.flags.job)path.push('Keeping outside income reduced pressure on the company during its early stages.');if(wealthState.flags.fulltime)path.push('Going full time increased both your focus and the consequences of weak business months.');if(wealthState.flags.hired||wealthState.flags.team)path.push('Hiring increased capacity, but it also turned payroll into a permanent responsibility.');if(wealthState.flags.loan)path.push(`Debt helped you move faster, but you finished with ${wfmt(wealthState.debt)} still owed.`);if(wealthState.flags.reinvested)path.push('Reinvesting profit increased the value of the company instead of treating every good month as spending money.');if(wealthState.flags.soldBusiness)path.push('Eventually you converted the business itself into cash by accepting an exit offer.');path.push(`Five years later your estimated net worth is ${wfmt(nw)}, a ${roi>=0?'gain':'loss'} of ${wfmt(Math.abs(gain))}, or ${Math.abs(roi).toFixed(1)}%.`);
+  W$('wealth-ending-story').textContent=path.join(' ');
+  W$('wealth-end-start').textContent=wfmt(wealthState.start);W$('wealth-end-networth').textContent=wfmt(nw);W$('wealth-end-gain').textContent=(gain>=0?'+':'-')+wfmt(Math.abs(gain));W$('wealth-end-roi').textContent=`${roi>=0?'+':''}${roi.toFixed(1)}%`;W$('wealth-end-profit').textContent=wfmt(wealthState.annualProfit);W$('wealth-end-debt').textContent=wfmt(wealthState.debt);
+  const selected=wealthState.history.filter(x=>x.question!=='Yearly event').slice(0,8);
+  W$('wealth-ending-impacts').innerHTML=selected.map(h=>`<div class="impact-card"><span>YEAR ${h.year}</span><strong>${h.option}</strong><p>${h.result}</p></div>`).join('');
 }
 
 W$('wealth-start-btn').onclick=()=>{
-  const amount=Number(W$('wealth-starting-amount').value.replace(/,/g,''));
-  if(!Number.isFinite(amount)||amount<100||amount>100000000){alert('Enter an amount between $100 and $100 million.');return;}
-  Object.assign(wealthState,{start:amount,cash:amount,investments:0,businessValue:0,debt:0,annualProfit:0,risk:25,reputation:25,year:1,decision:0,style:W$('wealth-style').value,difficulty:W$('wealth-difficulty').value,flags:{},used:new Set(),log:[],history:[]});
-  if(wealthState.style==='investor')wealthState.risk=18;
-  if(wealthState.style==='hustle')wealthState.reputation=30;
-  if(wealthState.style==='balanced')wealthState.risk=22;
-  showOnly('wealth-game-screen');
-  nextWealthQuestion();
+  const amount=Number(W$('wealth-starting-amount').value.replace(/,/g,''));if(!Number.isFinite(amount)||amount<100||amount>100000000){alert('Enter an amount between $100 and $100 million.');return;}
+  Object.assign(wealthState,{start:amount,cash:amount,investments:0,businessValue:0,debt:0,annualProfit:0,risk:25,reputation:25,year:1,decision:0,maxDecisions:30,style:W$('wealth-style').value,difficulty:W$('wealth-difficulty').value,flags:{},used:new Set(),usedEvents:new Set(),log:[],history:[]});showOnly('wealth-game-screen');chooseWealthQuestion();
 };
-
-W$('wealth-restart-btn').onclick=()=>{if(confirm('Restart Build Wealth mode?'))showOnly('wealth-start-screen');};
+W$('wealth-restart-btn').onclick=()=>{if(confirm('Restart Build Wealth and choose a new amount?'))showOnly('wealth-start-screen');};
 W$('wealth-play-again-btn').onclick=()=>showOnly('wealth-start-screen');
-W$('wealth-copy-result-btn').onclick=async()=>{const nw=wealthNetWorth();const roi=(nw-wealthState.start)/wealthState.start*100;const text=`Fortune Path Build Wealth: I started with ${wfmt(wealthState.start)} and finished five years later with ${wfmt(nw)} (${roi>=0?'+':''}${roi.toFixed(1)}%).`;await navigator.clipboard.writeText(text);W$('wealth-copy-result-btn').textContent='Copied';setTimeout(()=>W$('wealth-copy-result-btn').textContent='Copy Result',1300);};
+W$('wealth-copy-result-btn').onclick=async()=>{const nw=wealthNetWorth(),roi=(nw-wealthState.start)/wealthState.start*100;const text=`Fortune Path Build Wealth: I started with ${wfmt(wealthState.start)} in ${wealthState.flags.businessName||'a business'} and finished five years later with ${wfmt(nw)} (${roi>=0?'+':''}${roi.toFixed(1)}%).`;await navigator.clipboard.writeText(text);W$('wealth-copy-result-btn').textContent='Copied';setTimeout(()=>W$('wealth-copy-result-btn').textContent='Copy Result',1300);};
