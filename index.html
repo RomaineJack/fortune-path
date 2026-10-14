@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fortune Path</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section id="start-screen" class="screen active">
+      <div class="hero-card">
+        <p class="eyebrow">A LIFE AND WEALTH SIMULATOR</p>
+        <h1>FORTUNE PATH</h1>
+        <p class="hero-copy">You just came into serious money. Choose how it happened, set the size of the fortune, and live five years of consequences. Earlier decisions can unlock opportunities, create problems, or completely change your ending.</p>
+
+        <div class="setup-grid">
+          <div class="setup-block">
+            <label for="origin-select">How did you get the money?</label>
+            <select id="origin-select">
+              <option value="lottery">Lottery jackpot</option>
+              <option value="inheritance">Inheritance</option>
+              <option value="startup">Startup sale</option>
+              <option value="athlete">Professional athlete contract</option>
+              <option value="entertainer">Entertainment career</option>
+              <option value="crypto">Crypto or speculative windfall</option>
+              <option value="business">Business exit</option>
+              <option value="custom">Custom windfall</option>
+            </select>
+          </div>
+          <div class="setup-block">
+            <label for="difficulty-select">Simulation style</label>
+            <select id="difficulty-select">
+              <option value="realistic">Realistic</option>
+              <option value="casual">Casual</option>
+              <option value="chaos">Chaos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="origin-preview" id="origin-preview"></div>
+
+        <div class="amount-panel">
+          <label for="starting-amount">Starting fortune after taxes and fees</label>
+          <div class="amount-row">
+            <span class="currency">$</span>
+            <input id="starting-amount" inputmode="numeric" value="100000000" aria-label="Starting fortune" />
+          </div>
+          <div class="start-actions">
+            <button id="randomize-btn" class="btn secondary">Randomize</button>
+            <button id="start-btn" class="btn primary">Start My Life</button>
+          </div>
+          <p class="helper">Enter any amount from $100,000 to $1 billion, or let the game choose. Different origins change the questions and pressures you face.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">YEAR <span id="year-label">1</span> OF 5</p>
+          <h2 id="chapter-title">Your new life begins</h2>
+        </div>
+        <div class="top-actions">
+          <button id="save-btn" class="icon-btn">Save</button>
+          <button id="restart-btn" class="icon-btn danger">Restart</button>
+        </div>
+      </header>
+
+      <section class="stats-grid">
+        <article class="stat-card"><span>Net Worth</span><strong id="stat-networth">$0</strong></article>
+        <article class="stat-card"><span>Cash</span><strong id="stat-cash">$0</strong></article>
+        <article class="stat-card"><span>Annual Income</span><strong id="stat-income">$0</strong></article>
+        <article class="stat-card"><span>Annual Burn</span><strong id="stat-burn">$0</strong></article>
+        <article class="stat-card"><span>Risk</span><strong id="stat-risk">0</strong></article>
+        <article class="stat-card"><span>Happiness</span><strong id="stat-happiness">50</strong></article>
+        <article class="stat-card"><span>Health</span><strong id="stat-health">70</strong></article>
+        <article class="stat-card"><span>Relationships</span><strong id="stat-relationships">70</strong></article>
+        <article class="stat-card"><span>Fame</span><strong id="stat-fame">0</strong></article>
+      </section>
+
+      <section class="game-layout">
+        <article class="question-card">
+          <div class="question-meta">
+            <span id="question-category" class="pill">LIFE</span>
+            <span id="question-progress">Decision 1</span>
+          </div>
+          <h3 id="question-title">What do you do first?</h3>
+          <p id="question-text"></p>
+          <div id="choices" class="choices"></div>
+        </article>
+
+        <aside class="sidebar">
+          <div class="side-card">
+            <h4>Your Life</h4>
+            <div id="life-summary" class="summary-list"></div>
+          </div>
+          <div class="side-card">
+            <h4>Recent Consequences</h4>
+            <div id="event-log" class="event-log"></div>
+          </div>
+        </aside>
+      </section>
+    </section>
+
+    <section id="end-screen" class="screen">
+      <div class="ending-card">
+        <p class="eyebrow">FIVE YEARS LATER</p>
+        <h1 id="ending-title">THE SURVIVOR</h1>
+        <div id="ending-story" class="ending-story"></div>
+
+        <section class="impact-section">
+          <div class="impact-heading">
+            <p class="eyebrow">WHAT SHAPED YOUR LIFE</p>
+            <h2>How your decisions affected the outcome</h2>
+          </div>
+          <div id="ending-impacts" class="ending-impacts"></div>
+        </section>
+
+        <div class="ending-stats">
+          <div><span>Starting Fortune</span><strong id="end-start">$0</strong></div>
+          <div><span>Ending Net Worth</span><strong id="end-networth">$0</strong></div>
+          <div><span>Cash Remaining</span><strong id="end-cash">$0</strong></div>
+          <div><span>Annual Income</span><strong id="end-income">$0</strong></div>
+          <div><span>Risk Score</span><strong id="end-risk">0</strong></div>
+          <div><span>Happiness</span><strong id="end-happiness">0</strong></div>
+          <div><span>Health</span><strong id="end-health">0</strong></div>
+          <div><span>Relationships</span><strong id="end-relationships">0</strong></div>
+          <div><span>Reputation</span><strong id="end-reputation">0</strong></div>
+        </div>
+
+        <section class="impact-section">
+          <div class="impact-heading">
+            <p class="eyebrow">ACHIEVEMENTS</p>
+            <h2>What this life unlocked</h2>
+          </div>
+          <div id="achievement-list" class="achievement-list"></div>
+        </section>
+
+        <div class="ending-actions">
+          <button id="play-again-btn" class="btn primary">Play Again</button>
+          <button id="copy-result-btn" class="btn secondary">Copy Result</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
