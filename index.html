@@ -81,8 +81,29 @@
           <div class="amount-row"><span class="currency">$</span><input id="wealth-starting-amount" inputmode="numeric" value="10000" aria-label="Build wealth starting amount" /></div>
           <div class="setup-grid wealth-setup">
             <div class="setup-block">
-              <label for="wealth-style">Your owner strategy</label>
-              <select id="wealth-style"><option value="business">Operator first</option><option value="balanced">Business + investing</option><option value="investor">Protect outside wealth</option><option value="hustle">Start lean and hustle</option></select>
+              <label for="wealth-style">Your starting strategy</label>
+              <select id="wealth-style">
+                <option value="business">Build a business</option>
+                <option value="balanced">Build a business + invest</option>
+                <option value="investor">Protect outside wealth while building</option>
+                <option value="hustle">Start lean and hustle</option>
+              </select>
+            </div>
+            <div id="wealth-business-block" class="setup-block business-picker-block">
+              <label for="wealth-business-type">Which business do you want to build?</label>
+              <select id="wealth-business-type">
+                <option value="content">Content Creator / Media Business</option>
+                <option value="service">Service Business</option>
+                <option value="agency">Creative or Marketing Agency</option>
+                <option value="ecommerce">E Commerce Brand</option>
+                <option value="cleaning">Cleaning Company</option>
+                <option value="saas">Tech Company / SaaS Startup</option>
+                <option value="foodtruck">Food Truck</option>
+                <option value="realestate">Real Estate Company</option>
+                <option value="trucking">Trucking Company</option>
+                <option value="restaurant">Restaurant</option>
+              </select>
+              <p id="wealth-business-preview" class="helper">Choose the company you want the next five years of questions to be built around.</p>
             </div>
             <div class="setup-block">
               <label for="wealth-difficulty">Economy</label>
@@ -119,5 +140,6 @@
   <script src="wealth-mode.js"></script>
   <script src="wealth-arcs.js"></script>
   <script src="wealth-flow-v2.js"></script>
+  <script src="wealth-setup-ui.js"></script>
 </body>
 </html>
